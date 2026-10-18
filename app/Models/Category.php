@@ -21,4 +21,9 @@ class Category extends Model
     {
         return $this->hasMany(Service::class);
     }
+
+    public function providerProfiles()
+    {
+        return $this->hasMany(ProviderProfile::class);
+    }
 }

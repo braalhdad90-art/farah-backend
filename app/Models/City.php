@@ -10,14 +10,27 @@ class City extends Model
     /** @use HasFactory<\Database\Factories\CityFactory> */
     use HasFactory;
     
-    protected $table = 'cities';
-
     protected $fillable = [
         'name',
     ];
 
     public function users()
     {
-        return $this->hasMany(User::class, 'city_id');
+        return $this->hasMany(User::class);
+    }
+
+    public function locations()
+    {
+        return $this->hasMany(Location::class);
+    }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    public function providerProfiles()
+    {
+        return $this->hasMany(ProviderProfile::class);
     }
 }

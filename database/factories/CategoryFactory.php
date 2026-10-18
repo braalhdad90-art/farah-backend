@@ -11,18 +11,12 @@ class CategoryFactory extends Factory
 
     public function definition(): array
     {
-        $name = $this->faker->unique()->randomElement([
-            'Cleaning',
-            'Repair',
-            'Beauty',
-            'Home',
-            'Delivery',
-            'Tutoring',
-        ]);
+        $name = $this->faker->unique()->words(2, true);
+        $slug = $this->faker->unique()->slug(2);
 
         return [
             'name' => $name,
-            'slug' => strtolower(str_replace(' ', '-', $name)),
+            'slug' => $slug,
             'image' => 'categories/default.jpg',
             'status' => 'active',
         ];

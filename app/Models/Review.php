@@ -12,8 +12,17 @@ class Review extends Model
     protected $fillable = [
         'user_id',
         'service_id',
+        'booking_id',
         'rating',
         'comment',
+        'is_visible',
+        'moderated_by',
+        'moderated_at',
+        'moderation_reason',
+    ];
+
+    protected $casts = [
+        'rating' => 'integer',
     ];
 
     public function user()
@@ -24,5 +33,10 @@ class Review extends Model
     public function service()
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function booking()
+    {
+        return $this->belongsTo(Booking::class);
     }
 }

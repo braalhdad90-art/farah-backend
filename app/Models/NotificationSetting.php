@@ -11,10 +11,19 @@ class NotificationSetting extends Model
 
     protected $fillable = [
         'user_id',
+        'enabled',
         'new_orders',
         'offers',
         'promotions',
         'reminders',
+    ];
+
+    protected $casts = [
+        'enabled' => 'boolean',
+        'new_orders' => 'boolean',
+        'offers' => 'boolean',
+        'promotions' => 'boolean',
+        'reminders' => 'boolean',
     ];
 
     public function user()

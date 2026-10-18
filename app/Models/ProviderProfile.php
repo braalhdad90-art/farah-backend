@@ -21,10 +21,27 @@ class ProviderProfile extends Model
         'bio',
         'description',
         'cover_image',
+        'identity_document_path',
+        'commercial_register_path',
+        'payment_instructions',
         'status',
+        'registration_status',
+        'submitted_at',
+        'escalated_at',
+        'decided_at',
+        'decision_reason',
         'is_featured',
         'rating',
         'working_hours',
+    ];
+
+    protected $casts = [
+        'is_featured' => 'boolean',
+        'rating' => 'float',
+        'working_hours' => 'array',
+        'submitted_at' => 'datetime',
+        'escalated_at' => 'datetime',
+        'decided_at' => 'datetime',
     ];
 
     public function user()
@@ -39,6 +56,11 @@ class ProviderProfile extends Model
 
     public function category()
     {
-        return $this->belongsTo(Category::class, 'category_id');
+        return $this->belongsTo(Category::class);
+    }
+
+    public function services()
+    {
+        return $this->hasMany(Service::class, 'provider_id', 'user_id');
     }
 }
