@@ -1,0 +1,55 @@
+body {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 24px;
+    background: #f4f6f9;
+    color: #202b3c;
+    font-family: 'Cairo', Tahoma, sans-serif;
+}
+
+.login-card {
+    width: min(100%, 420px);
+    overflow: hidden;
+    border: 1px solid #e7ebf0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 18px 55px rgba(25, 42, 63, .08);
+}
+
+.login-brand {
+    padding: 27px 30px;
+    background: #17263b;
+    color: #fff;
+}
+
+.brand-icon {
+    display: grid;
+    width: 45px;
+    height: 45px;
+    place-items: center;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, .12);
+    color: #f0c4ca;
+    font-size: 19px;
+}
+
+.form-control {
+    min-height: 44px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.btn-primary {
+    min-height: 45px;
+    border: 0;
+    border-radius: 8px;
+    background: #17263b;
+    font-family: inherit;
+    font-weight: 700;
+}
+
+.btn-primary:hover {
+    background: #263b56;
+}

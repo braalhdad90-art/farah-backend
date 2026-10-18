@@ -2,26 +2,24 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Farah API Documentation",
-        "description": "توثيق واجهات برمجة التطبيقات لمنصة فرح",
+        "description": "توثيق واجهات برمجة التطبيقات (APIs) لمنصة فرح لتطبيق Flutter",
         "version": "1.0.0"
     },
-    "paths": {
-        "/api": {
-            "servers": [
-                {
-                    "url": "https://farah-backend-1.onrender.com/api",
-                    "description": "سيرفر الإنتاج (Render)"
-                },
-                {
-                    "url": "http://127.0.0.1:8000/api",
-                    "description": "السيرفر المحلي"
-                }
-            ]
+    "servers": [
+        {
+            "url": "https://farah-production.up.railway.app",
+            "description": "سيرفر الإنتاج (Railway Production)"
         },
+        {
+            "url": "http://127.0.0.1:8000",
+            "description": "السيرفر المحلي (Local Server)"
+        }
+    ],
+    "paths": {
         "/api/login": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "تسجيل الدخول",
                 "operationId": "22e04cf3d8862316c3d8195760e36ed4",
@@ -59,7 +57,7 @@
                         "description": "بيانات الدخول غير صحيحة"
                     },
                     "403": {
-                        "description": "الحساب غير مفعل أو غير مأكد"
+                        "description": "الحساب غير نشط أو غير مفعّل"
                     },
                     "422": {
                         "description": "خطأ في البيانات المدخلة"
@@ -70,7 +68,7 @@
         "/api/register": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "تسجيل حساب جديد",
                 "operationId": "8e4e3cb7b46126f4696379d3c7eeb4ad",
@@ -129,7 +127,38 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "تم إنشاء الحساب بنجاح"
+                        "description": "تم إنشاء الحساب وتفعيله بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "token": {
+                                                    "type": "string"
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "example": "Bearer"
+                                                },
+                                                "user": {
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "خطأ في البيانات المدخلة"
@@ -137,32 +166,95 @@
                 }
             }
         },
-        "/api/logout": {
+        "/api/auth/google": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
-                "summary": "تسجيل الخروج",
-                "operationId": "ad65cbbd4e9f201619eae184a5961a98",
-                "responses": {
-                    "200": {
-                        "description": "تم تسجيل الخروج بنجاح"
-                    },
-                    "400": {
-                        "description": "لا يوجد رمز دخول نشط"
+                "summary": "تسجيل الدخول عبر Google",
+                "operationId": "b4100edbd2cb3a3e92b4d231c5df59cc",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "id_token"
+                                ],
+                                "properties": {
+                                    "id_token": {
+                                        "type": "string",
+                                        "example": "google-id-token"
+                                    },
+                                    "user_type": {
+                                        "type": "string",
+                                        "example": "customer",
+                                        "enum": [
+                                            "customer",
+                                            "provider"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
                     }
                 },
-                "security": [
-                    {
-                        "sanctum": []
+                "responses": {
+                    "200": {
+                        "description": "تم تسجيل الدخول عبر Google بنجاح"
+                    },
+                    "401": {
+                        "description": "رمز Google غير صالح"
+                    },
+                    "403": {
+                        "description": "الحساب غير نشط"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات المدخلة"
                     }
-                ]
+                }
+            }
+        },
+        "/api/email/verify/{id}/{hash}": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "تفعيل البريد الإلكتروني",
+                "operationId": "9f2e6865b5056f77d9d30e8324d549fa",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "hash",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم تفعيل البريد بنجاح"
+                    },
+                    "403": {
+                        "description": "رابط التفعيل غير صالح"
+                    }
+                }
             }
         },
         "/api/resend-verification-email": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "إعادة إرسال بريد التفعيل",
                 "operationId": "7c18c8806ce77db9db6bb37360369bfc",
@@ -190,8 +282,8 @@
                     "200": {
                         "description": "تم إرسال رابط التفعيل"
                     },
-                    "400": {
-                        "description": "البريد مفعّل مسبقاً"
+                    "409": {
+                        "description": "البريد مفعّل مسبقًا"
                     },
                     "422": {
                         "description": "البريد غير مسجل"
@@ -199,16 +291,16 @@
                 }
             }
         },
-        "/api/profile": {
-            "get": {
+        "/api/logout": {
+            "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
-                "summary": "عرض الملف الشخصي",
-                "operationId": "94a5f4c5f5e5755cf43698cf9bc49e9d",
+                "summary": "تسجيل الخروج",
+                "operationId": "ad65cbbd4e9f201619eae184a5961a98",
                 "responses": {
                     "200": {
-                        "description": "تم جلب البيانات بنجاح"
+                        "description": "تم تسجيل الخروج بنجاح"
                     },
                     "401": {
                         "description": "غير مصرح"
@@ -216,7 +308,29 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/profile": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "عرض الملف الشخصي",
+                "operationId": "94a5f4c5f5e5755cf43698cf9bc49e9d",
+                "responses": {
+                    "200": {
+                        "description": "تم جلب الملف الشخصي بنجاح"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -224,7 +338,7 @@
         "/api/profile/update": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "تحديث الملف الشخصي",
                 "operationId": "0fcaa074c146bf5a9aa85ab2fbafb009",
@@ -257,7 +371,10 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "تم تحديث البيانات بنجاح"
+                        "description": "تم تحديث الملف الشخصي بنجاح"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
                     },
                     "422": {
                         "description": "خطأ في البيانات المدخلة"
@@ -265,26 +382,156 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/email/change-request": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "طلب تغيير البريد الإلكتروني",
+                "operationId": "73e0b09f484ee7234d2b32783b640fc2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "new@example.com"
+                                    },
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    },
+                                    "google_id_token": {
+                                        "type": "string",
+                                        "example": "google-id-token"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم إرسال رابط تأكيد البريد الجديد"
+                    },
+                    "403": {
+                        "description": "تعذر التحقق من الهوية"
+                    },
+                    "409": {
+                        "description": "البريد مستخدم بالفعل"
+                    },
+                    "503": {
+                        "description": "تعذر إرسال رسالة التأكيد"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات المدخلة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/email/change/verify/{id}/{hash}": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "تأكيد تغيير البريد الإلكتروني",
+                "operationId": "86ce7b8563dbb88652716a6a842add67",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "hash",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم تغيير البريد الإلكتروني وتفعيله"
+                    },
+                    "403": {
+                        "description": "رابط التأكيد غير صالح أو منتهي"
+                    },
+                    "409": {
+                        "description": "البريد الجديد مستخدم بالفعل"
+                    }
+                }
             }
         },
         "/api/account": {
             "delete": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "حذف الحساب",
                 "operationId": "74ee784732c6de3c0e3dabc731b5b981",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    },
+                                    "google_id_token": {
+                                        "type": "string",
+                                        "example": "google-id-token"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
                         "description": "تم حذف الحساب بنجاح"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    },
+                    "403": {
+                        "description": "تعذر التحقق من الهوية"
+                    },
+                    "409": {
+                        "description": "يوجد حجوزات قائمة"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات المدخلة"
                     }
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -292,7 +539,7 @@
         "/api/change-password": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "تغيير كلمة المرور",
                 "operationId": "88e8bff0f686a99070f87cdf1bac01e1",
@@ -332,16 +579,19 @@
                     "200": {
                         "description": "تم تغيير كلمة المرور بنجاح"
                     },
+                    "401": {
+                        "description": "غير مصرح"
+                    },
                     "403": {
                         "description": "كلمة المرور الحالية غير صحيحة"
                     },
                     "422": {
-                        "description": "خطأ في مطابقة البيانات"
+                        "description": "خطأ في البيانات المدخلة"
                     }
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -349,7 +599,7 @@
         "/api/forgot-password": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
                 "summary": "طلب إعادة ضبط كلمة المرور",
                 "operationId": "20d78161b19ac6afb56924e74974ec46",
@@ -377,8 +627,14 @@
                     "200": {
                         "description": "تم إرسال رابط إعادة الضبط"
                     },
+                    "400": {
+                        "description": "تعذر إرسال رابط إعادة الضبط"
+                    },
                     "422": {
-                        "description": "البريد الإلكتروني غير موجود"
+                        "description": "البريد غير مسجل"
+                    },
+                    "503": {
+                        "description": "خدمة البريد غير متاحة"
                     }
                 }
             }
@@ -386,9 +642,9 @@
         "/api/reset-password": {
             "post": {
                 "tags": [
-                    "Authentication"
+                    "Auth"
                 ],
-                "summary": "إعادة ضبط كلمة المرور باستخدام التوكين",
+                "summary": "إعادة ضبط كلمة المرور باستخدام التوكن",
                 "operationId": "0a6624b616e4ba5a310a61d9f7418c35",
                 "requestBody": {
                     "required": true,
@@ -432,26 +688,3478 @@
                         "description": "تم إعادة ضبط كلمة المرور بنجاح"
                     },
                     "422": {
-                        "description": "التوكين غير صالح أو البيانات غير متطابقة"
+                        "description": "التوكن غير صالح أو منتهي"
                     }
                 }
             }
         },
-        "/api/users": {
+        "/api/services/{id}/bookings": {
+            "post": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "إنشاء طلب حجز",
+                "operationId": "fecc3bad1a28cac621d35042d3e52df3",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "booking_date",
+                                    "booking_time"
+                                ],
+                                "properties": {
+                                    "booking_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "booking_time": {
+                                        "type": "string"
+                                    },
+                                    "booking_slot": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم إرسال طلب الحجز"
+                    },
+                    "422": {
+                        "description": "الفترة غير متاحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings": {
             "get": {
                 "tags": [
-                    "Users"
+                    "Bookings"
                 ],
-                "summary": "جلب قائمة المستخدمين",
-                "operationId": "c457726701591d1183b53aa71fc13441",
+                "summary": "قائمة حجوزات العميل",
+                "operationId": "6bc557d58221fdced821892ef57ddf80",
                 "responses": {
                     "200": {
-                        "description": "تمت العملية بنجاح"
+                        "description": "قائمة الحجوزات"
                     },
                     "401": {
                         "description": "غير مصرح"
                     }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/bookings": {
+            "get": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "قائمة حجوزات مزود الخدمة",
+                "operationId": "83e77237230f1a96e3122ae82786c4eb",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "قائمة الحجوزات"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/bookings/{id}": {
+            "get": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "تفاصيل حجز لمزود الخدمة",
+                "operationId": "b173cf8919b83b88dd534f139b4f8fed",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تفاصيل الحجز"
+                    },
+                    "404": {
+                        "description": "الحجز غير موجود"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{id}": {
+            "get": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "تفاصيل حجز العميل",
+                "operationId": "c383a28985575aa1a16f783b2f762554",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تفاصيل الحجز"
+                    },
+                    "404": {
+                        "description": "الحجز غير موجود"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{id}/confirmation": {
+            "get": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "عرض تأكيد الحجز",
+                "operationId": "d29311933bd40e44c7813985e71b3035",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "بيانات تأكيد الحجز"
+                    },
+                    "404": {
+                        "description": "الحجز غير موجود"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/bookings/{id}/decision": {
+            "post": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "قبول أو رفض طلب حجز",
+                "operationId": "fb0fac3f7042597822189abdab20b7f6",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "decision",
+                                    "deposit_amount"
+                                ],
+                                "properties": {
+                                    "decision": {
+                                        "type": "string",
+                                        "enum": [
+                                            "accepted",
+                                            "rejected"
+                                        ]
+                                    },
+                                    "deposit_amount": {
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "provider_note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث حالة الطلب"
+                    },
+                    "422": {
+                        "description": "لا يمكن اتخاذ القرار"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{id}/payment-proofs": {
+            "post": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "رفع إثبات دفع الحجز",
+                "operationId": "07811c46a4a35c6d3c874e1d096ff2ae",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "amount",
+                                    "method",
+                                    "proof"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "method": {
+                                        "type": "string"
+                                    },
+                                    "proof": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "customer_note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم رفع إثبات الدفع"
+                    },
+                    "422": {
+                        "description": "بيانات الدفع غير صالحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/bookings/{bookingId}/payments/{paymentId}/review": {
+            "post": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "مراجعة إثبات الدفع",
+                "operationId": "28d354be9219034e809db3f41c8de44d",
+                "parameters": [
+                    {
+                        "name": "bookingId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "paymentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "decision"
+                                ],
+                                "properties": {
+                                    "decision": {
+                                        "type": "string",
+                                        "enum": [
+                                            "confirmed",
+                                            "rejected"
+                                        ]
+                                    },
+                                    "review_note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تمت مراجعة إثبات الدفع"
+                    },
+                    "422": {
+                        "description": "لا يمكن مراجعة الإثبات"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/bookings/{id}/cancel": {
+            "post": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "إلغاء حجز العميل",
+                "operationId": "9d8eeb663633d4d68870aa36255983b7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم إلغاء الحجز"
+                    },
+                    "422": {
+                        "description": "لا يمكن إلغاء الحجز"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/bookings/{id}/complete": {
+            "post": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "إكمال الحجز",
+                "operationId": "1878e1c965295cedfa52df1c9b0e52e8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم إكمال الحجز"
+                    },
+                    "422": {
+                        "description": "لا يمكن إكمال الحجز"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/payment-instructions": {
+            "put": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "تحديث تعليمات التحويل",
+                "operationId": "5120e0454473f718ee81d2851f23f6bb",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "payment_instructions"
+                                ],
+                                "properties": {
+                                    "payment_instructions": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم حفظ تعليمات التحويل"
+                    },
+                    "422": {
+                        "description": "بيانات المزود غير مكتملة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/bookings/{bookingId}/payments/{paymentId}/proof": {
+            "get": {
+                "tags": [
+                    "Bookings"
+                ],
+                "summary": "تحميل إثبات الدفع",
+                "operationId": "a3809a06b003b17acb6c221fb33c77cf",
+                "parameters": [
+                    {
+                        "name": "bookingId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "paymentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ملف إثبات الدفع"
+                    },
+                    "403": {
+                        "description": "غير مصرح"
+                    },
+                    "404": {
+                        "description": "الملف غير موجود"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/categories": {
+            "get": {
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "جلب قائمة التصنيفات النشطة",
+                "description": "يسترجع جميع الفئات والتصنيفات المتاحة في المنصة والحاملة للحالة active.",
+                "operationId": "ac9c4d978ea4e5b72915ca9728e5b8b1",
+                "responses": {
+                    "200": {
+                        "description": "تم جلب التصنيفات بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "صالات أفراح"
+                                                    },
+                                                    "slug": {
+                                                        "type": "string",
+                                                        "example": "wedding-halls"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "categories/hall.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "active"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2026-08-26T12:00:00.000000Z"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2026-08-26T12:00:00.000000Z"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
                 }
+            }
+        },
+        "/api/cities": {
+            "get": {
+                "tags": [
+                    "Cities"
+                ],
+                "summary": "جلب قائمة المدن المتاحة",
+                "description": "يسترجع جميع المدن مرتبة أبدياً لاستخدامها في القوائم المنسدلة وعناوين الطلبات.",
+                "operationId": "185d0aefb5fd6e9d4e5f1263e2734df4",
+                "responses": {
+                    "200": {
+                        "description": "تم جلب قائمة المدن بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "icon": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "example": "Cities fetched"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "غزة"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2026-08-26T12:00:00.000000Z"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2026-08-26T12:00:00.000000Z"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/provider/external-bookings": {
+            "get": {
+                "tags": [
+                    "External Bookings"
+                ],
+                "summary": "عرض الحجوزات الخارجية للمزود",
+                "operationId": "60bca377ff0790313f55f931de51f6c3",
+                "responses": {
+                    "200": {
+                        "description": "قائمة الحجوزات الخارجية"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "External Bookings"
+                ],
+                "summary": "إضافة حجز خارجي للمزود",
+                "operationId": "55caf1e90f733a5505b055510847e109",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "customer_name",
+                                    "service_name",
+                                    "booking_date",
+                                    "total_price"
+                                ],
+                                "properties": {
+                                    "customer_name": {
+                                        "type": "string",
+                                        "example": "سارة أحمد"
+                                    },
+                                    "customer_phone": {
+                                        "type": "string",
+                                        "example": "0501234567",
+                                        "nullable": true
+                                    },
+                                    "service_name": {
+                                        "type": "string",
+                                        "example": "قاعة الموهبة"
+                                    },
+                                    "booking_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-10-20"
+                                    },
+                                    "booking_time": {
+                                        "type": "string",
+                                        "format": "time",
+                                        "example": "18:00",
+                                        "nullable": true
+                                    },
+                                    "total_price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 960
+                                    },
+                                    "deposit_amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 300,
+                                        "nullable": true
+                                    },
+                                    "payment_method": {
+                                        "type": "string",
+                                        "example": "bank_transfer",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            "pending",
+                                            "confirmed",
+                                            "cancelled"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم حفظ الحجز الخارجي"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    },
+                    "422": {
+                        "description": "بيانات غير صالحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/favorites": {
+            "get": {
+                "tags": [
+                    "Favorites"
+                ],
+                "summary": "جلب قائمة الخدمات المفضلة للمستخدم",
+                "description": "يسترجع قائمة بجميع الخدمات التي قام المستخدم المسجل بإضافتها إلى المفضلة.",
+                "operationId": "bc433e786ab5a0bec81c53c578e0b6aa",
+                "responses": {
+                    "200": {
+                        "description": "تم جلب المفضلة بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "service_id": {
+                                                        "type": "integer",
+                                                        "example": 5
+                                                    },
+                                                    "title": {
+                                                        "type": "string",
+                                                        "example": "صالة أورنا"
+                                                    },
+                                                    "price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 1400
+                                                    },
+                                                    "currency": {
+                                                        "type": "string",
+                                                        "example": "ILS"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "services/hall_orna.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "rating_avg": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 4.8
+                                                    },
+                                                    "reviews_count": {
+                                                        "type": "integer",
+                                                        "example": 19
+                                                    },
+                                                    "location": {
+                                                        "type": "string",
+                                                        "example": "غزة - الرمال - شمال مطعم التايلندي"
+                                                    },
+                                                    "city": {
+                                                        "type": "string",
+                                                        "example": "غزة"
+                                                    },
+                                                    "is_favorited": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    },
+                                                    "category": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "صالات"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "provider": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 3
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "صالة أورنا"
+                                                            },
+                                                            "avatar": {
+                                                                "type": "string",
+                                                                "example": "providers/orna.jpg",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "غير مصرح (يرجى تسجيل الدخول)"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/favorites/toggle/{service_id}": {
+            "post": {
+                "tags": [
+                    "Favorites"
+                ],
+                "summary": "إضافة أو إزالة خدمة من المفضلة (Toggle)",
+                "description": "يقوم بالتبديل بين إضافة الخدمة إلى المفضلة أو حذفها في حال كانت موجودة مسبقاً.",
+                "operationId": "ec6c68a63bebfe2743dd6acf0bc0b770",
+                "parameters": [
+                    {
+                        "name": "service_id",
+                        "in": "path",
+                        "description": "معرّف الخدمة المطلوب إضافتها أو إزالتها",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث حالة المفضلة بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "is_favorited": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "تمت إضافة الخدمة إلى المفضلة بنجاح"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "الخدمة غير موجودة"
+                    },
+                    "401": {
+                        "description": "غير مصرح (يرجى تسجيل الدخول)"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/services/{id}/favorite": {
+            "post": {
+                "tags": [
+                    "Favorites"
+                ],
+                "summary": "إضافة أو إزالة خدمة من المفضلة",
+                "operationId": "d8a64811e25f81ef1cb7d115419d8321",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث حالة المفضلة"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    },
+                    "404": {
+                        "description": "الخدمة غير موجودة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/home": {
+            "get": {
+                "tags": [
+                    "Home"
+                ],
+                "summary": "جلب بيانات الصفحة الرئيسية الكاملة حسب التصميم",
+                "description": "يسترجع بيانات الصفحة الرئيسية بما يشمل: معلومات الهيدر والمستخدم، قائمة الخدمات والتصنيفات، سلايدر العروض المميزة، المزودين المقترحين، الباقات المميزة، والخدمات الأكثر طلباً.",
+                "operationId": "d65ef76cbb32ae304c5a24c525b95adb",
+                "responses": {
+                    "200": {
+                        "description": "تم جلب بيانات الصفحة الرئيسية بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "description": "معلومات المستخدم المسجل وموقعه (null في حال كان الزائر غير مسجل)",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "مالك"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "malik@example.com"
+                                                },
+                                                "avatar": {
+                                                    "type": "string",
+                                                    "example": "avatars/malik.jpg",
+                                                    "nullable": true
+                                                },
+                                                "location": {
+                                                    "type": "string",
+                                                    "example": "غزة، الوحدة"
+                                                },
+                                                "city": {
+                                                    "type": "string",
+                                                    "example": "غزة"
+                                                },
+                                                "unread_notifications_count": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                }
+                                            },
+                                            "type": "object",
+                                            "nullable": true
+                                        },
+                                        "categories": {
+                                            "description": "قائمة التصنيفات والأقسام (الخدمات)",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "صالات"
+                                                    },
+                                                    "slug": {
+                                                        "type": "string",
+                                                        "example": "wedding-halls"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "categories/hall.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "active"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "banners": {
+                                            "description": "سلايدر العروض والخدمات المميزة في أعلى الشاشة",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "service_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "title": {
+                                                        "type": "string",
+                                                        "example": "صالة اورنا"
+                                                    },
+                                                    "badge": {
+                                                        "type": "string",
+                                                        "example": "عرض لفترة محدودة"
+                                                    },
+                                                    "price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 1400
+                                                    },
+                                                    "currency": {
+                                                        "type": "string",
+                                                        "example": "ILS"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "services/hall_orna.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "features": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "example": "دي جي متكامل"
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "suggested_providers": {
+                                            "description": "مزودين مقترحين للمستخدم",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "user_id": {
+                                                        "type": "integer",
+                                                        "example": 4
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "إيمان فؤاد"
+                                                    },
+                                                    "business_name": {
+                                                        "type": "string",
+                                                        "example": "إيمان فؤاد"
+                                                    },
+                                                    "avatar": {
+                                                        "type": "string",
+                                                        "example": "providers/eman.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "specialty": {
+                                                        "type": "string",
+                                                        "example": "أضواء"
+                                                    },
+                                                    "category_name": {
+                                                        "type": "string",
+                                                        "example": "أضواء"
+                                                    },
+                                                    "rating": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 4.9
+                                                    },
+                                                    "city": {
+                                                        "type": "string",
+                                                        "example": "غزة"
+                                                    },
+                                                    "is_featured": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "featured_packages": {
+                                            "description": "باقات مميزة وعروض ذات نسب خصم",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "title": {
+                                                        "type": "string",
+                                                        "example": "باقة الورد والتنسيق الملكي"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "services/package1.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "discount_badge": {
+                                                        "type": "string",
+                                                        "example": "خصم 15%"
+                                                    },
+                                                    "discount_percentage": {
+                                                        "type": "integer",
+                                                        "example": 15
+                                                    },
+                                                    "price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 350
+                                                    },
+                                                    "original_price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 411.76
+                                                    },
+                                                    "currency": {
+                                                        "type": "string",
+                                                        "example": "ILS"
+                                                    },
+                                                    "rating_avg": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 4.9
+                                                    },
+                                                    "reviews_count": {
+                                                        "type": "integer",
+                                                        "example": 22
+                                                    },
+                                                    "provider": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 2
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "لافندر ستور"
+                                                            },
+                                                            "avatar": {
+                                                                "type": "string",
+                                                                "example": "providers/lavender.jpg",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "category": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 2
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "تنسيق ورد"
+                                                            }
+                                                        },
+                                                        "type": "object",
+                                                        "nullable": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "most_popular": {
+                                            "description": "الخدمات الأكثر طلباً وتقييماً",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "title": {
+                                                        "type": "string",
+                                                        "example": "صالة هابي نايت"
+                                                    },
+                                                    "description": {
+                                                        "type": "string",
+                                                        "example": "صالة مجهزة بأحدث الديكورات",
+                                                        "nullable": true
+                                                    },
+                                                    "price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 1800
+                                                    },
+                                                    "currency": {
+                                                        "type": "string",
+                                                        "example": "ILS"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "services/happy_night.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "rating_avg": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 5
+                                                    },
+                                                    "reviews_count": {
+                                                        "type": "integer",
+                                                        "example": 45
+                                                    },
+                                                    "location": {
+                                                        "type": "string",
+                                                        "example": "غزة - شارع الجلاء مقابل منتزه البلدية"
+                                                    },
+                                                    "city": {
+                                                        "type": "string",
+                                                        "example": "غزة"
+                                                    },
+                                                    "provider": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 3
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "صالة هابي نايت"
+                                                            },
+                                                            "avatar": {
+                                                                "type": "string",
+                                                                "example": "providers/hall.jpg",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "category": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "صالات"
+                                                            }
+                                                        },
+                                                        "type": "object",
+                                                        "nullable": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "featured_providers": {
+                                            "description": "مرادف متوافق عكسياً لـ suggested_providers",
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "services": {
+                                            "description": "مرادف متوافق عكسياً لـ most_popular",
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/locations": {
+            "get": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "جلب قائمة عناوين المستخدم الحالي",
+                "operationId": "4a95f25c1e13530115fd3fd6961b92de",
+                "responses": {
+                    "200": {
+                        "description": "تم استرجاع العناوين بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "icon": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "example": "Locations retrieved successfully."
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "إضافة عنوان جديد للمستخدم الحالي",
+                "operationId": "2e940d1dad83fe7c7fb5a308a7f6d84a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "example": "المنزل"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "شارع الجلاء، غزة"
+                                    },
+                                    "city_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 31.5
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 34.4667
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم إنشاء العنوان بنجاح"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات المدخلة"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/locations/{location}": {
+            "get": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "عرض تفاصيل عنوان محدد",
+                "operationId": "f167a429e4fe99e390b7f6e5fb2a0b0e",
+                "parameters": [
+                    {
+                        "name": "location",
+                        "in": "path",
+                        "description": "معرّف العنوان",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم استرجاع العنوان بنجاح"
+                    },
+                    "403": {
+                        "description": "العنوان غير تابع للمستخدم الحالي"
+                    },
+                    "404": {
+                        "description": "العنوان غير موجود"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "تعديل عنوان محدد",
+                "operationId": "879c97824fb3fbada5295f184e5385b9",
+                "parameters": [
+                    {
+                        "name": "location",
+                        "in": "path",
+                        "description": "معرّف العنوان",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "example": "العمل"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "شارع الرمال، غزة"
+                                    },
+                                    "city_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 31.51
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 34.45
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث العنوان بنجاح"
+                    },
+                    "403": {
+                        "description": "العنوان غير تابع للمستخدم الحالي"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات المدخلة"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "حذف عنوان محدد",
+                "operationId": "b087bde5ca5fc36bf09597126337778c",
+                "parameters": [
+                    {
+                        "name": "location",
+                        "in": "path",
+                        "description": "معرّف العنوان",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم حذف العنوان بنجاح"
+                    },
+                    "403": {
+                        "description": "العنوان غير تابع للمستخدم الحالي"
+                    },
+                    "404": {
+                        "description": "العنوان غير موجود"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "تعديل عنوان محدد جزئيًا",
+                "operationId": "951ce0d1b06d08e92c93fc3b0cd85d6c",
+                "parameters": [
+                    {
+                        "name": "location",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "example": "العمل"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "شارع الرمال، غزة"
+                                    },
+                                    "city_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 31.51
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 34.45
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث العنوان بنجاح"
+                    },
+                    "403": {
+                        "description": "العنوان غير تابع للمستخدم الحالي"
+                    },
+                    "422": {
+                        "description": "خطأ في البيانات المدخلة"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/locations/{location}/primary": {
+            "patch": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "تعيين العنوان الأساسي",
+                "operationId": "2b33624e9dc6008795ea47d110765121",
+                "parameters": [
+                    {
+                        "name": "location",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم تعيين العنوان الأساسي"
+                    },
+                    "403": {
+                        "description": "العنوان لا يخص المستخدم"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "عرض إشعارات المستخدم",
+                "operationId": "6d56a555955089a73fdf3f7229e8ead8",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "قائمة الإشعارات"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/{notification}/read": {
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "تعليم إشعار كمقروء",
+                "operationId": "72e815431bf7f79bc33df9bcc2d4d957",
+                "parameters": [
+                    {
+                        "name": "notification",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم تعليم الإشعار"
+                    },
+                    "403": {
+                        "description": "الإشعار لا يخص المستخدم"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notifications/read-all": {
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "تعليم كل الإشعارات كمقروءة",
+                "operationId": "fc83170240b5026140e1ab9ffc095173",
+                "responses": {
+                    "200": {
+                        "description": "تم تعليم الإشعارات"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/notification-settings": {
+            "get": {
+                "tags": [
+                    "Notification Settings"
+                ],
+                "summary": "عرض إعدادات الإشعارات",
+                "operationId": "3bba1aa4012a70327c94199d97922198",
+                "responses": {
+                    "200": {
+                        "description": "إعدادات الإشعارات"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Notification Settings"
+                ],
+                "summary": "تحديث إعدادات الإشعارات",
+                "operationId": "0d7da680e8364367c21843cffb71855b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "new_orders": {
+                                        "type": "boolean"
+                                    },
+                                    "offers": {
+                                        "type": "boolean"
+                                    },
+                                    "promotions": {
+                                        "type": "boolean"
+                                    },
+                                    "reminders": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث الإعدادات"
+                    },
+                    "422": {
+                        "description": "بيانات غير صالحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/verification": {
+            "get": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "عرض حالة توثيق حساب مزود الخدمة",
+                "operationId": "1a755a15110bea08f138a864f2afa406",
+                "responses": {
+                    "200": {
+                        "description": "حالة التوثيق"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/dashboard": {
+            "get": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "لوحة تحكم مزود الخدمة",
+                "operationId": "7e20ae4c3274e2ca4839242300910409",
+                "responses": {
+                    "200": {
+                        "description": "إحصاءات المزود والطلبات الأخيرة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/onboarding": {
+            "get": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "عرض بيانات تسجيل مزود الخدمة",
+                "operationId": "94b2c6a36c34e781434b1fc5d663aab1",
+                "responses": {
+                    "200": {
+                        "description": "بيانات المزود"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "حفظ بيانات تسجيل مزود الخدمة",
+                "operationId": "af9d3c6f4c16cccce8e37c9a19a5f0fc",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "business_name",
+                                    "category_id",
+                                    "description",
+                                    "city_id",
+                                    "address"
+                                ],
+                                "properties": {
+                                    "business_name": {
+                                        "type": "string",
+                                        "example": "صالة أورنا"
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "قاعة مناسبات مجهزة بالكامل"
+                                    },
+                                    "city_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "غزة - الرمال"
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "identity_document": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "commercial_register": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "cover_image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم حفظ البيانات"
+                    },
+                    "422": {
+                        "description": "بيانات غير صالحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/services": {
+            "get": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "عرض خدمات المزود",
+                "operationId": "ecd745c240a22c827fc880a07ca7c67d",
+                "responses": {
+                    "200": {
+                        "description": "قائمة الخدمات"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "إنشاء خدمة للمزود",
+                "operationId": "6a0a0b60cc10a88ce703f93c64892ceb",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "title",
+                                    "price"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "example": "صالة أورنا"
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "city_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "service_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "service",
+                                            "package"
+                                        ]
+                                    },
+                                    "features": {
+                                        "description": "مصفوفة JSON مرسلة كنص.",
+                                        "type": "string",
+                                        "example": "[\"مواقف سيارات\",\"نظام صوتي\"]"
+                                    },
+                                    "capacity": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "area": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "area_unit": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "booking_slots": {
+                                        "description": "مصفوفة JSON مرسلة كنص.",
+                                        "type": "string",
+                                        "example": "[{\"label\":\"الفترة المسائية\",\"start_time\":\"17:00\",\"end_time\":\"22:00\"}]"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "pricing_unit": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "execution_duration": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "cancellation_policy": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "deposit_amount": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "deposit_percentage": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "example": "ILS"
+                                    },
+                                    "is_available": {
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "images": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    },
+                                    "remove_image_ids": {
+                                        "description": "مصفوفة JSON لمعرّفات الصور المراد حذفها.",
+                                        "type": "string",
+                                        "example": "[1,2]"
+                                    },
+                                    "package_items": {
+                                        "description": "مصفوفة JSON لعناصر الباقة.",
+                                        "type": "string",
+                                        "example": "[{\"title\":\"التصوير\",\"quantity\":1}]"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم إنشاء الخدمة",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "icon": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/services/{id}": {
+            "post": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "تعديل خدمة للمزود",
+                "operationId": "b16ed5c514e42d99413c506a9b644481",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "title",
+                                    "price"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "city_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "service_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "service",
+                                            "package"
+                                        ]
+                                    },
+                                    "features": {
+                                        "description": "مصفوفة JSON مرسلة كنص.",
+                                        "type": "string"
+                                    },
+                                    "capacity": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "area": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "area_unit": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "booking_slots": {
+                                        "description": "مصفوفة JSON مرسلة كنص.",
+                                        "type": "string"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "pricing_unit": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "execution_duration": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "cancellation_policy": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "deposit_amount": {
+                                        "type": "number",
+                                        "nullable": true
+                                    },
+                                    "deposit_percentage": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "currency": {
+                                        "type": "string"
+                                    },
+                                    "is_available": {
+                                        "type": "boolean"
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "images": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    },
+                                    "remove_image_ids": {
+                                        "description": "مصفوفة JSON لمعرّفات الصور المراد حذفها.",
+                                        "type": "string"
+                                    },
+                                    "package_items": {
+                                        "description": "مصفوفة JSON لعناصر الباقة.",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تعديل الخدمة",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "icon": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "حذف خدمة للمزود",
+                "operationId": "5412933a7ae0c623c4d6fc6eb5a7b11c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم حذف الخدمة"
+                    },
+                    "403": {
+                        "description": "المستخدم ليس مزود خدمة"
+                    },
+                    "404": {
+                        "description": "الخدمة غير موجودة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/services/{id}/visibility": {
+            "patch": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "إظهار أو إخفاء خدمة",
+                "operationId": "67194fd54405a0cf1e77f29a1635cdd8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "is_available"
+                                ],
+                                "properties": {
+                                    "is_available": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث ظهور الخدمة"
+                    },
+                    "404": {
+                        "description": "الخدمة غير موجودة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/services/{id}/availability": {
+            "get": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "عرض تقويم إتاحة الخدمة",
+                "operationId": "5472492b02a7a54c78203102e1316942",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "2026-09"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تقويم الخدمة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "تحديث تقويم إتاحة الخدمة",
+                "operationId": "17e874ccafa803544c47434ebdb1966e",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "block_dates": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-10-15"
+                                                },
+                                                "reason": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "unblock_dates": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "date"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم تحديث التقويم",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "بيانات غير صالحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/reviews": {
+            "get": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "عرض تقييمات خدمات المزود",
+                "operationId": "3e2a25d52aa3805ba7ea6aad4636a2a9",
+                "responses": {
+                    "200": {
+                        "description": "قائمة تقييمات العملاء"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/subscription-plans": {
+            "get": {
+                "tags": [
+                    "Provider Subscriptions"
+                ],
+                "summary": "عرض باقات الاشتراك",
+                "operationId": "cc6966cc9eb3db892ff0ec4d8d66cf2b",
+                "responses": {
+                    "200": {
+                        "description": "قائمة الباقات"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/subscription": {
+            "get": {
+                "tags": [
+                    "Provider Subscriptions"
+                ],
+                "summary": "عرض الاشتراك الحالي",
+                "operationId": "caaad0261adb547b1338063ed7355152",
+                "responses": {
+                    "200": {
+                        "description": "بيانات الاشتراك الحالي"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Provider Subscriptions"
+                ],
+                "summary": "تفعيل اشتراك مزود الخدمة",
+                "operationId": "7581cccd69cd6b90c347f38d3d642010",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "plan"
+                                ],
+                                "properties": {
+                                    "plan": {
+                                        "type": "string",
+                                        "example": "free-trial"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم تفعيل الاشتراك"
+                    },
+                    "409": {
+                        "description": "تم استخدام الاشتراك المجاني مسبقًا"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/subscription/cancel": {
+            "post": {
+                "tags": [
+                    "Provider Subscriptions"
+                ],
+                "summary": "إلغاء اشتراك مزود الخدمة",
+                "operationId": "d8a5effcab98c28854405ade822db00b",
+                "responses": {
+                    "200": {
+                        "description": "تم إلغاء الاشتراك"
+                    },
+                    "404": {
+                        "description": "لا يوجد اشتراك فعال"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/services": {
+            "get": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "استعراض والبحث في الخدمات والفلترة حسب التصنيف والفرز",
+                "description": "يسترجع قائمة الخدمات المطابقة للتصميم (كروت الصالات والخدمات) مع دعم البحث الفوري، الفلترة حسب التصنيف والمدينة، والفرز بالأقل سعراً أو الأعلى تقييماً أو الأقرب لموقعك، مع حالة المفضلة للمستخدم المسجل.",
+                "operationId": "97de511018def32ca0ccbc800756c538",
+                "parameters": [
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "معرّف التصنيف (مثل صالات: 1)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "category_slug",
+                        "in": "query",
+                        "description": "الاسم اللطيف للتصنيف (مثل: wedding-halls)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "wedding-halls"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "كلمة البحث في عنوان أو وصف الخدمة (ابحث ضمن الصالات...)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "اورنا"
+                        }
+                    },
+                    {
+                        "name": "sort_by",
+                        "in": "query",
+                        "description": "طريقة الفرز: all (الكل)، price_low (الأقل سعراً)، price_high (الأعلى سعراً)، rating (الأعلى تقييماً)، nearest (الأقرب لموقعك)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "all",
+                            "enum": [
+                                "all",
+                                "price_low",
+                                "price_high",
+                                "rating",
+                                "nearest"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "city_id",
+                        "in": "query",
+                        "description": "فلترة حسب المدينة",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "latitude",
+                        "in": "query",
+                        "description": "خط العرض الحالي لحساب الأقرب لموقعك",
+                        "required": false,
+                        "schema": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 31.5
+                        }
+                    },
+                    {
+                        "name": "longitude",
+                        "in": "query",
+                        "description": "خط الطول الحالي لحساب الأقرب لموقعك",
+                        "required": false,
+                        "schema": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 34.4667
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "عدد العناصر في الصفحة الواحدة",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "رقم الصفحة (Pagination)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم جلب الخدمات بنجاح وتوافقها التام مع كروت الواجهة",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "category": {
+                                            "description": "بيانات التصنيف المختار (لعنوان الشاشة)",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "صالات"
+                                                },
+                                                "slug": {
+                                                    "type": "string",
+                                                    "example": "wedding-halls"
+                                                },
+                                                "image": {
+                                                    "type": "string",
+                                                    "example": "categories/hall.jpg",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object",
+                                            "nullable": true
+                                        },
+                                        "available_sorts": {
+                                            "description": "خيارات الفرز المتاحة في الواجهة",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "key": {
+                                                        "type": "string",
+                                                        "example": "all"
+                                                    },
+                                                    "label": {
+                                                        "type": "string",
+                                                        "example": "الكل"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "active_sort": {
+                                            "type": "string",
+                                            "example": "all"
+                                        },
+                                        "data": {
+                                            "description": "قائمة كروت الخدمات المطابقة للتصميم",
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "title": {
+                                                        "type": "string",
+                                                        "example": "صالة أورنا"
+                                                    },
+                                                    "description": {
+                                                        "type": "string",
+                                                        "example": "صالة أفراح مجهزة بأحدث الديكورات",
+                                                        "nullable": true
+                                                    },
+                                                    "price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 1400
+                                                    },
+                                                    "currency": {
+                                                        "type": "string",
+                                                        "example": "ILS"
+                                                    },
+                                                    "image": {
+                                                        "type": "string",
+                                                        "example": "services/hall_orna.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "images": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "example": "services/hall_orna.jpg"
+                                                        }
+                                                    },
+                                                    "rating_avg": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 4.8
+                                                    },
+                                                    "reviews_count": {
+                                                        "type": "integer",
+                                                        "example": 24
+                                                    },
+                                                    "location": {
+                                                        "type": "string",
+                                                        "example": "غزة - الرمال - شمال مطعم التايلندي، عمارة حرز الله"
+                                                    },
+                                                    "city": {
+                                                        "type": "string",
+                                                        "example": "غزة"
+                                                    },
+                                                    "is_favorited": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "button_text": {
+                                                        "type": "string",
+                                                        "example": "تفاصيل الصالة"
+                                                    },
+                                                    "provider": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 4
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "إدارة صالة أورنا"
+                                                            },
+                                                            "avatar": {
+                                                                "type": "string",
+                                                                "example": "providers/orna.jpg",
+                                                                "nullable": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "category": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "صالات"
+                                                            },
+                                                            "slug": {
+                                                                "type": "string",
+                                                                "example": "wedding-halls"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 25
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/categories/{id}/services": {
+            "get": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "استعراض خدمات تصنيف محدد",
+                "operationId": "dd15ea699a69d8284087bb0d7334d908",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "قائمة خدمات التصنيف"
+                    },
+                    "404": {
+                        "description": "التصنيف غير موجود"
+                    }
+                }
+            }
+        },
+        "/api/services/compare": {
+            "get": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "مقارنة الخدمات",
+                "operationId": "8406377f83552a0020c5fc1564d92770",
+                "parameters": [
+                    {
+                        "name": "ids",
+                        "in": "query",
+                        "description": "معرّفات خدمتين إلى ثلاث مفصولة بفواصل",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "1,2,3"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "بيانات الخدمات للمقارنة"
+                    },
+                    "422": {
+                        "description": "عدد أو تصنيف الخدمات غير صالح"
+                    }
+                }
+            }
+        },
+        "/api/services/{id}": {
+            "get": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "عرض تفاصيل خدمة أو صالة محددة",
+                "description": "يسترجع كافة تفاصيل الخدمة بما يشمل معرض الصور، التقييمات، معلومات المزود، والموقع.",
+                "operationId": "dce5b306a141bdec91eff8a15534d7d7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "معرّف الخدمة",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تم جلب تفاصيل الخدمة بنجاح",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "example": "صالة أورنا"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "صالة مجهزة بأحدث الديكورات ونظام إضاءة وصوت مميز"
+                                                },
+                                                "features": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "مواقف سيارات",
+                                                        "نظام صوتي",
+                                                        "إضاءة"
+                                                    ]
+                                                },
+                                                "capacity": {
+                                                    "type": "integer",
+                                                    "example": 400,
+                                                    "nullable": true
+                                                },
+                                                "area": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 850,
+                                                    "nullable": true
+                                                },
+                                                "area_unit": {
+                                                    "type": "string",
+                                                    "example": "m²"
+                                                },
+                                                "booking_slots": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    },
+                                                    "example": [
+                                                        {
+                                                            "label": "الفترة الصباحية",
+                                                            "start_time": "09:00",
+                                                            "end_time": "15:00"
+                                                        }
+                                                    ]
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 1400
+                                                },
+                                                "currency": {
+                                                    "type": "string",
+                                                    "example": "ILS"
+                                                },
+                                                "image": {
+                                                    "type": "string",
+                                                    "example": "services/hall_orna.jpg",
+                                                    "nullable": true
+                                                },
+                                                "images": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "services/hall_orna.jpg"
+                                                    }
+                                                },
+                                                "rating_avg": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 4.8
+                                                },
+                                                "reviews_count": {
+                                                    "type": "integer",
+                                                    "example": 24
+                                                },
+                                                "location": {
+                                                    "type": "string",
+                                                    "example": "غزة - الرمال - شمال مطعم التايلندي، عمارة حرز الله"
+                                                },
+                                                "city": {
+                                                    "type": "string",
+                                                    "example": "غزة"
+                                                },
+                                                "is_favorited": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "category": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "صالات"
+                                                        },
+                                                        "slug": {
+                                                            "type": "string",
+                                                            "example": "wedding-halls"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "provider": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 4
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "صالة أورنا"
+                                                        },
+                                                        "avatar": {
+                                                            "type": "string",
+                                                            "example": "providers/orna.jpg",
+                                                            "nullable": true
+                                                        },
+                                                        "phone": {
+                                                            "type": "string",
+                                                            "example": "0599000000",
+                                                            "nullable": true
+                                                        },
+                                                        "bio": {
+                                                            "type": "string",
+                                                            "example": "أفضل صالات الأفراح في غزة",
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "reviews": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "rating": {
+                                                                "type": "integer",
+                                                                "example": 5
+                                                            },
+                                                            "comment": {
+                                                                "type": "string",
+                                                                "example": "مكان رائع وخدمة ممتازة جداً"
+                                                            },
+                                                            "user_name": {
+                                                                "type": "string",
+                                                                "example": "مالك"
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "example": "2026-08-20"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "الخدمة غير موجودة"
+                    }
+                }
+            }
+        },
+        "/api/services/{id}/booking-options": {
+            "get": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "جلب تقويم وفترات الحجز للخدمة",
+                "operationId": "6d1fc214b3171965dd8c9126ec6e0a26",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "description": "الشهر بصيغة YYYY-MM",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "2026-09"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "تقويم وفترات الحجز المتاحة"
+                    },
+                    "404": {
+                        "description": "الخدمة غير موجودة"
+                    }
+                }
+            }
+        },
+        "/api/services/{id}/booking-preview": {
+            "post": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "معاينة ملخص الحجز قبل الدفع",
+                "operationId": "92b8687a6ab5170e39acaa2c121cda13",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "booking_date",
+                                    "booking_time"
+                                ],
+                                "properties": {
+                                    "booking_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-09-21"
+                                    },
+                                    "booking_time": {
+                                        "type": "string",
+                                        "example": "17:00"
+                                    },
+                                    "booking_slot": {
+                                        "type": "string",
+                                        "example": "الفترة المسائية",
+                                        "nullable": true
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "ملخص الحجز جاهز"
+                    },
+                    "422": {
+                        "description": "الفترة غير متاحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/services/{id}/reviews": {
+            "post": {
+                "tags": [
+                    "Services"
+                ],
+                "summary": "إضافة أو تحديث تقييم الخدمة",
+                "operationId": "517730925ea723e18d5217440e654c85",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "rating"
+                                ],
+                                "properties": {
+                                    "rating": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "maximum": 5,
+                                        "minimum": 1
+                                    },
+                                    "comment": {
+                                        "type": "string",
+                                        "example": "الخدمة ممتازة",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "تم حفظ التقييم"
+                    },
+                    "401": {
+                        "description": "يجب تسجيل الدخول"
+                    },
+                    "422": {
+                        "description": "بيانات التقييم غير صالحة"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/user": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "عرض بيانات المستخدم الحالي",
+                "operationId": "dd48b9887ac0e98fac70ebd3da3eb645",
+                "responses": {
+                    "200": {
+                        "description": "بيانات المستخدم"
+                    },
+                    "401": {
+                        "description": "غير مصرح"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         }
     },
@@ -459,6 +4167,7 @@
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
+                "description": "أدخل التوكن بهذا الشكل: Bearer {token}",
                 "name": "Authorization",
                 "in": "header",
                 "bearerFormat": "JWT",
@@ -468,12 +4177,60 @@
     },
     "tags": [
         {
-            "name": "Authentication",
-            "description": "إدارة الحسابات وتسجيل الدخول"
+            "name": "Auth",
+            "description": "إدارة الحسابات والمصادقة والملف الشخصي"
+        },
+        {
+            "name": "Bookings",
+            "description": "إدارة حجوزات العملاء ومزودي الخدمة والمدفوعات"
+        },
+        {
+            "name": "Categories",
+            "description": "التصنيفات والقطاعات"
+        },
+        {
+            "name": "Cities",
+            "description": "المدن والمناطق"
+        },
+        {
+            "name": "External Bookings",
+            "description": "إدارة الحجوزات الخارجية للمزود"
+        },
+        {
+            "name": "Favorites",
+            "description": "إدارة المفضلة وقائمة الخدمات المفضلة للمستخدم"
+        },
+        {
+            "name": "Home",
+            "description": "بيانات الصفحة الرئيسية"
+        },
+        {
+            "name": "Locations",
+            "description": "عناوين المستخدمين"
+        },
+        {
+            "name": "Notifications",
+            "description": "إدارة إشعارات المستخدم"
+        },
+        {
+            "name": "Notification Settings",
+            "description": "إعدادات إشعارات المستخدم"
+        },
+        {
+            "name": "Provider",
+            "description": "إدارة ملف مزود الخدمة وخدماته"
+        },
+        {
+            "name": "Provider Subscriptions",
+            "description": "إدارة اشتراكات مزود الخدمة"
+        },
+        {
+            "name": "Services",
+            "description": "الخدمات والمزودين"
         },
         {
             "name": "Users",
-            "description": "Users"
+            "description": "بيانات المستخدم الحالي"
         }
     ]
 }

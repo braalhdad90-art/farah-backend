@@ -9,6 +9,18 @@ class CategorySeeder extends Seeder
 {
     public function run(): void
     {
-        Category::factory()->count(6)->create();
+        foreach ([
+            ['name' => 'Cleaning', 'slug' => 'cleaning'],
+            ['name' => 'Repair', 'slug' => 'repair'],
+            ['name' => 'Beauty', 'slug' => 'beauty'],
+            ['name' => 'Home', 'slug' => 'home'],
+            ['name' => 'Delivery', 'slug' => 'delivery'],
+            ['name' => 'Tutoring', 'slug' => 'tutoring'],
+        ] as $category) {
+            Category::firstOrCreate($category, [
+                'image' => 'categories/default.jpg',
+                'status' => 'active',
+            ]);
+        }
     }
 }

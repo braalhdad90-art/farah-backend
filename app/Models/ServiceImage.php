@@ -12,7 +12,6 @@ class ServiceImage extends Model
     protected $fillable = [
         'service_id',
         'image_path',
-        'is_cover',
         'sort_order',
     ];
 
