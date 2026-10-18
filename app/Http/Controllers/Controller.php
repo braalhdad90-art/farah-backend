@@ -10,8 +10,8 @@ use OpenApi\Attributes as OA;
     description: "توثيق واجهات برمجة التطبيقات (APIs) لمنصة فرح لتطبيق Flutter"
 )]
 #[OA\Server(
-    url: "https://farah-production.up.railway.app",
-    description: "سيرفر الإنتاج (Railway Production)"
+    url: L5_SWAGGER_CONST_HOST,
+    description: "السيرفر الحالي"
 )]
 #[OA\Server(
     url: "http://127.0.0.1:8000",

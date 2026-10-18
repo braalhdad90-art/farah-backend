@@ -36,5 +36,8 @@ RUN chown -R www-data:www-data \
     /app/storage \
     /app/bootstrap/cache
 
-# Start Laravel
-CMD ["sh", "-c", "php artisan config:clear && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+COPY docker/start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
+# Start Laravel: storage link, migrations, scheduler, then the web server
+CMD ["/usr/local/bin/start.sh"]

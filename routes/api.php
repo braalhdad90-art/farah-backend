@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('throttle:60,1')->group(function () {
+Route::middleware('throttle:public')->group(function () {
     Route::get('/settings', PublicSettingsController::class);
     Route::get('/cities', [CityController::class, 'index']);
     Route::get('/home', [HomeController::class, 'index']);
@@ -40,11 +40,11 @@ Route::middleware('throttle:60,1')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('throttle:10,1')->group(function () {
+Route::middleware('throttle:register')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
 });
 
-Route::middleware('throttle:5,1')->group(function () {
+Route::middleware('throttle:auth')->group(function () {
     Route::post('/login', [AuthController::class, 'apilogin'])->name('login');
     Route::post('/auth/google', [AuthController::class, 'googleLogin']);
     Route::post('/resend-verification-email', [AuthController::class, 'resendVerificationEmail']);
@@ -52,7 +52,7 @@ Route::middleware('throttle:5,1')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
 });
 
-Route::middleware(['signed-api', 'throttle:6,1'])->group(function () {
+Route::middleware(['signed-api', 'throttle:signed'])->group(function () {
     Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->name('verification.verify');
     Route::get('/email/change/verify/{id}/{hash}', [AuthController::class, 'verifyEmailChange'])
@@ -65,7 +65,7 @@ Route::middleware(['signed-api', 'throttle:6,1'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:authenticated'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::middleware(['account.active', 'verified'])->group(function () {
