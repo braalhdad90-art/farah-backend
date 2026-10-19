@@ -7,6 +7,8 @@ use App\Models\AdminAuditLog;
 use App\Models\AdminRefund;
 use App\Models\Booking;
 use App\Models\BookingPayment;
+use App\Models\ProviderSubscription;
+use App\Models\SubscriptionPayment;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -90,6 +92,100 @@ class AdminFinanceController extends Controller
         });
 
         return redirect()->route('admin.finance.payments')->with('success', 'تمت مراجعة إثبات الدفع.');
+    }
+
+    // فرح: مراجعة إشعارات تحويل اشتراكات المزودين. الاعتماد يفعّل الباقة، والرفض يرجع المزود لرفع إشعار جديد.
+    public function subscriptionPayments()
+    {
+        $payments = SubscriptionPayment::with(['provider.providerProfile', 'plan'])
+            ->where('status', 'submitted')
+            ->latest()
+            ->paginate(20);
+
+        return view('admin.subscription-payments', ['payments' => $payments]);
+    }
+
+    public function subscriptionProof(SubscriptionPayment $payment)
+    {
+        abort_unless($payment->proof_path && Storage::disk('local')->exists($payment->proof_path), 404, 'إشعار التحويل غير موجود.');
+
+        return Storage::disk('local')->response(
+            $payment->proof_path,
+            'subscription-proof-'.$payment->id.'.'.pathinfo($payment->proof_path, PATHINFO_EXTENSION),
+            ['Cache-Control' => 'private, no-store, max-age=0']
+        );
+    }
+
+    public function reviewSubscriptionPayment(Request $request, SubscriptionPayment $payment, NotificationService $notifications)
+    {
+        $data = $request->validate([
+            'decision' => ['required', 'in:confirmed,rejected'],
+            'review_note' => ['nullable', 'string', 'min:5', 'max:2000', 'required_if:decision,rejected'],
+        ]);
+
+        DB::transaction(function () use ($payment, $data, $notifications, $request): void {
+            $locked = SubscriptionPayment::with('plan')->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            abort_unless($locked->status === 'submitted', 409, 'تمت مراجعة إشعار التحويل مسبقًا.');
+
+            $before = $locked->only(['status', 'review_note', 'reviewed_by', 'reviewed_at', 'provider_subscription_id']);
+            $confirmed = $data['decision'] === 'confirmed';
+
+            $subscriptionId = null;
+            if ($confirmed) {
+                // Remaining days of the current period carry over to the new plan.
+                $current = ProviderSubscription::where('provider_id', $locked->provider_id)
+                    ->whereIn('status', ['trialing', 'active'])
+                    ->where('current_period_end', '>', now())
+                    ->lockForUpdate()
+                    ->get();
+                $start = now();
+                $base = $current->max('current_period_end') ?? $start;
+                $count = max(1, (int) $locked->plan->interval_count);
+                $end = $locked->plan->interval === 'year'
+                    ? $base->copy()->addYearsNoOverflow($count)
+                    : $base->copy()->addMonthsNoOverflow($count);
+
+                ProviderSubscription::whereKey($current->pluck('id'))->update(['status' => 'replaced']);
+                $subscriptionId = ProviderSubscription::create([
+                    'provider_id' => $locked->provider_id,
+                    'subscription_plan_id' => $locked->subscription_plan_id,
+                    'status' => 'active',
+                    'current_period_start' => $start,
+                    'current_period_end' => $end,
+                ])->id;
+            }
+
+            $locked->update([
+                'status' => $data['decision'],
+                'review_note' => $data['review_note'] ?? null,
+                'reviewed_by' => Auth::id(),
+                'reviewed_at' => now(),
+                'provider_subscription_id' => $subscriptionId,
+            ]);
+
+            AdminAuditLog::create([
+                'actor_id' => Auth::id(),
+                'user_id' => $locked->provider_id,
+                'actor_role' => Auth::user()?->getRoleNames()->first(),
+                'action' => 'subscription_payment_'.$data['decision'],
+                'resource_type' => 'subscription_payment',
+                'resource_id' => $locked->id,
+                'before' => $before,
+                'after' => $locked->fresh()->only(array_keys($before)),
+                'ip_address' => $request->ip(),
+            ]);
+
+            $notifications->send(
+                $locked->provider_id,
+                $confirmed ? 'subscription_activated' : 'subscription_payment_rejected',
+                $confirmed ? 'تم تفعيل اشتراكك' : 'تعذر اعتماد إشعار التحويل',
+                $confirmed ? 'تم اعتماد التحويل وتفعيل '.$locked->plan->name.'.' : ($data['review_note'] ?? 'راجع بيانات التحويل وارفع إشعارًا جديدًا.'),
+                'subscription_payment',
+                $locked->id
+            );
+        });
+
+        return redirect()->route('admin.finance.subscriptions')->with('success', 'تمت مراجعة إشعار التحويل.');
     }
 
     public function refunds()

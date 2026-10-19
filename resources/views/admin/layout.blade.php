@@ -19,6 +19,7 @@
 
     if (in_array($role, ['finance.reviewer', 'system.admin'], true)) {
         $navItems[] = ['label' => 'مراجعة الدفعات', 'icon' => 'fa-money-check-dollar', 'route' => route('admin.finance.payments'), 'active' => request()->routeIs('admin.finance.payments')];
+        $navItems[] = ['label' => 'اشتراكات المزودين', 'icon' => 'fa-receipt', 'route' => route('admin.finance.subscriptions'), 'active' => request()->routeIs('admin.finance.subscriptions')];
         $navItems[] = ['label' => 'الاستردادات', 'icon' => 'fa-arrow-rotate-left', 'route' => route('admin.finance.refunds'), 'active' => request()->routeIs('admin.finance.refunds*')];
         $navItems[] = ['label' => 'تقرير الدفعات', 'icon' => 'fa-file-invoice-dollar', 'route' => route('admin.finance.export.payments'), 'active' => false];
     }

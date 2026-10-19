@@ -13,6 +13,7 @@ class SubscriptionPlan extends Model
         'slug',
         'name',
         'description',
+        'features',
         'price',
         'currency',
         'interval',
@@ -21,6 +22,7 @@ class SubscriptionPlan extends Model
     ];
 
     protected $casts = [
+        'features' => 'array',
         'price' => 'decimal:2',
         'interval_count' => 'integer',
         'is_active' => 'boolean',

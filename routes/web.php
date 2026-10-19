@@ -54,6 +54,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', 'admin.idle', 'a
             ->middleware('signed')
             ->name('payment.proof');
         Route::post('/payments/{payment}/review', [AdminFinanceController::class, 'review'])->name('payment.review');
+        Route::get('/subscriptions', [AdminFinanceController::class, 'subscriptionPayments'])->name('subscriptions');
+        Route::get('/subscriptions/{payment}/proof', [AdminFinanceController::class, 'subscriptionProof'])
+            ->middleware('signed')
+            ->name('subscription.proof');
+        Route::post('/subscriptions/{payment}/review', [AdminFinanceController::class, 'reviewSubscriptionPayment'])->name('subscription.review');
         Route::get('/refunds', [AdminFinanceController::class, 'refunds'])->name('refunds');
         Route::post('/refunds/{booking}', [AdminFinanceController::class, 'createRefund'])->name('refunds.create');
         Route::post('/refunds/{refund}/decision', [AdminFinanceController::class, 'refundDecision'])->name('refunds.decision');
