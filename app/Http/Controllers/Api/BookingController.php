@@ -303,7 +303,7 @@ class BookingController extends Controller
 
     private function resolveSlot(Service $service, string $time, ?string $label): ?array
     {
-        return collect($service->booking_slots ?: [])->first(fn (array $slot) => ($slot['start_time'] ?? null) === $time && (($slot['label'] ?? null) === $label || blank($label)));
+        return collect($service->effectiveBookingSlots())->first(fn (array $slot) => ($slot['start_time'] ?? null) === $time && (($slot['label'] ?? null) === $label || blank($label)));
     }
 
     private function serviceSnapshot(Service $service, array $slot): array

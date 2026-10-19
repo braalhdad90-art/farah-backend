@@ -112,6 +112,38 @@ class ProviderStoreApiTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['offer_price', 'removable_features.0']);
     }
 
+    public function test_service_without_periods_is_booked_for_the_whole_day(): void
+    {
+        $provider = $this->provider();
+        $this->activeSubscription($provider);
+        $service = Service::factory()->create([
+            'provider_id' => $provider->id,
+            'status' => 'active',
+            'is_available' => true,
+            'booking_slots' => null,
+            'price' => 600,
+        ]);
+        $day = now()->addDays(3);
+
+        $this->getJson("/api/services/{$service->id}/booking-options?month=".$day->format('Y-m'))
+            ->assertOk()
+            ->assertJsonFragment(['date' => $day->toDateString()])
+            ->assertJsonFragment(['label' => 'اليوم كامل', 'start_time' => '00:00', 'price' => 600]);
+
+        $customer = User::factory()->create(['user_type' => 'customer']);
+        $this->actingAs($customer, 'sanctum')->postJson("/api/services/{$service->id}/bookings", [
+            'booking_date' => $day->toDateString(),
+            'booking_time' => '00:00',
+            'booking_slot' => 'اليوم كامل',
+        ])->assertCreated();
+
+        // The day is now taken.
+        $this->actingAs(User::factory()->create(['user_type' => 'customer']), 'sanctum')->postJson("/api/services/{$service->id}/bookings", [
+            'booking_date' => $day->toDateString(),
+            'booking_time' => '00:00',
+        ])->assertStatus(422);
+    }
+
     private function provider(): User
     {
         $provider = User::factory()->create(['user_type' => 'provider', 'status' => 'active']);

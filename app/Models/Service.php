@@ -124,4 +124,16 @@ class Service extends Model
     {
         return $this->hasMany(ServiceUnavailableDate::class);
     }
+
+    /**
+     * فرح: خدمة بدون فترات حجز (مثل المسكات والكيك) تُحجز ليوم كامل.
+     */
+    public function effectiveBookingSlots(): array
+    {
+        return $this->booking_slots ?: [[
+            'label' => 'اليوم كامل',
+            'start_time' => '00:00',
+            'end_time' => '23:59',
+        ]];
+    }
 }
