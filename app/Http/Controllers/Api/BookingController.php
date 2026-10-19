@@ -331,6 +331,8 @@ class BookingController extends Controller
                 'id' => $booking->user?->id,
                 'name' => $booking->user?->name,
                 'avatar' => $booking->user?->avatar ? Storage::disk('public')->url($booking->user->avatar) : null,
+                // فرح: رقم العميل يظهر للمزود بعد قبول الطلب فقط، للتنسيق حول الاستلام.
+                'phone' => in_array($booking->workflow_status, ['payment_awaiting', 'review_under_proof', 'confirmed', 'completed'], true) ? $booking->user?->phone : null,
             ] : null,
             'expires_at' => $booking->expires_at?->toIso8601String(),
             'payment_due_at' => $booking->payment_due_at?->toIso8601String(),
@@ -341,7 +343,7 @@ class BookingController extends Controller
                 'image' => $this->imageUrl($image),
             ],
             'pricing' => ['total' => (float) $booking->selected_price, 'deposit' => (float) $booking->deposit_amount, 'remaining' => (float) $booking->remaining_amount, 'currency' => $service?->currency ?? ($snapshot['currency'] ?? 'ILS')],
-            'payments' => $booking->payments?->map(fn (BookingPayment $payment) => ['id' => $payment->id, 'reference' => $payment->reference, 'amount' => (float) $payment->amount, 'method' => $payment->method, 'status' => $payment->status, 'customer_note' => $payment->customer_note, 'review_note' => $payment->review_note, 'created_at' => $payment->created_at?->toIso8601String()])->values(),
+            'payments' => $booking->payments?->map(fn (BookingPayment $payment) => ['id' => $payment->id, 'reference' => $payment->reference, 'amount' => (float) $payment->amount, 'method' => $payment->method, 'status' => $payment->status, 'customer_note' => $payment->customer_note, 'review_note' => $payment->review_note, 'proof_type' => strtolower(pathinfo((string) $payment->proof_path, PATHINFO_EXTENSION)) === 'pdf' ? 'pdf' : 'image', 'created_at' => $payment->created_at?->toIso8601String()])->values(),
         ];
     }
 
