@@ -22,6 +22,9 @@
                 <div class="col-md-1"><label class="form-label small fw-bold">المدة</label><select name="interval" class="form-select"><option value="">—</option><option value="month" @selected($plan->interval === 'month')>شهر</option><option value="year" @selected($plan->interval === 'year')>سنة</option></select></div>
                 <div class="col-md-1"><label class="form-label small fw-bold">العدد</label><input type="number" min="1" max="24" name="interval_count" class="form-control" value="{{ $plan->interval_count }}" required></div>
                 <div class="col-md-3"><label class="form-label small fw-bold">حالة الباقة</label><select name="is_active" class="form-select"><option value="1" @selected($plan->is_active)>نشطة</option><option value="0" @selected(!$plan->is_active)>متوقفة</option></select></div>
+                @php($features = collect($plan->features ?? []))
+                <div class="col-md-6"><label class="form-label small fw-bold">المميزات المشمولة (ميزة في كل سطر)</label><textarea name="included_features" class="form-control" rows="4" maxlength="2000">{{ $features->where('included', true)->pluck('name')->implode("\n") }}</textarea></div>
+                <div class="col-md-6"><label class="form-label small fw-bold">مميزات غير مشمولة (تظهر باهتة)</label><textarea name="excluded_features" class="form-control" rows="4" maxlength="2000">{{ $features->where('included', false)->pluck('name')->implode("\n") }}</textarea></div>
                 <div class="col-md-3 align-self-end"><button class="btn btn-primary"><i class="fa-regular fa-floppy-disk ms-2"></i>حفظ الباقة</button></div>
             </div>
         </div>

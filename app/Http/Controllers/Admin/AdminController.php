@@ -446,11 +446,21 @@ class AdminController extends Controller
             'interval' => ['nullable', 'in:month,year'],
             'interval_count' => ['required', 'integer', 'min:1', 'max:24'],
             'is_active' => ['required', 'boolean'],
+            'included_features' => ['nullable', 'string', 'max:2000'],
+            'excluded_features' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        // فرح: مميزات الباقة تُكتب سطرًا لكل ميزة، وتظهر تحت الباقة في شاشة الاشتراك بالتطبيق.
+        $lines = fn (?string $text) => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $text))));
+        $data['features'] = array_merge(
+            array_map(fn ($name) => ['name' => $name, 'included' => true], $lines($data['included_features'] ?? null)),
+            array_map(fn ($name) => ['name' => $name, 'included' => false], $lines($data['excluded_features'] ?? null)),
+        );
+        unset($data['included_features'], $data['excluded_features']);
 
         DB::transaction(function () use ($request, $plan, $data): void {
             $locked = SubscriptionPlan::whereKey($plan->id)->lockForUpdate()->firstOrFail();
-            $before = $locked->only(['name', 'description', 'price', 'currency', 'interval', 'interval_count', 'is_active']);
+            $before = $locked->only(['name', 'description', 'features', 'price', 'currency', 'interval', 'interval_count', 'is_active']);
             $locked->update($data);
             $this->writeRecordAudit('subscription_plan_updated', 'subscription_plan', $locked->id, null, $before, $locked->fresh()->only(array_keys($before)), $request);
         });
@@ -471,6 +481,9 @@ class AdminController extends Controller
             'platform_name' => ['required', 'string', 'max:120'],
             'support_email' => ['nullable', 'email', 'max:255'],
             'support_phone' => ['nullable', 'string', 'max:40'],
+            'bank_name' => ['nullable', 'string', 'max:120'],
+            'bank_account_number' => ['nullable', 'string', 'max:60'],
+            'bank_iban' => ['nullable', 'string', 'max:60'],
         ]);
 
         DB::transaction(function () use ($request, $data): void {

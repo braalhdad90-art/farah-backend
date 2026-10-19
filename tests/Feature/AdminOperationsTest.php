@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\Category;
 use App\Models\ProviderProfile;
+use App\Models\ProviderSubscription;
+use App\Models\SubscriptionPayment;
 use App\Models\Review;
 use App\Models\Service;
 use App\Models\SubscriptionPlan;
@@ -78,8 +80,15 @@ class AdminOperationsTest extends TestCase
             'interval' => 'month',
             'interval_count' => 1,
             'is_active' => 1,
+            'included_features' => "First\n\nSecond",
+            'excluded_features' => 'Third',
         ])->assertRedirect();
         $this->assertDatabaseHas('subscription_plans', ['id' => $plan->id, 'price' => 125]);
+        $this->assertSame([
+            ['name' => 'First', 'included' => true],
+            ['name' => 'Second', 'included' => true],
+            ['name' => 'Third', 'included' => false],
+        ], $plan->fresh()->features);
 
         $teammate = $this->admin('finance.reviewer');
         $this->actingAs($admin)->post(route('admin.team.update_role', $teammate), [
@@ -92,9 +101,14 @@ class AdminOperationsTest extends TestCase
             'platform_name' => 'Farah',
             'support_email' => 'help@example.test',
             'support_phone' => '+9700000000',
+            'bank_name' => 'Admin bank',
+            'bank_account_number' => '42',
+            'bank_iban' => 'PS00TEST',
         ])->assertRedirect();
         $this->getJson('/api/settings')
             ->assertOk()
+            ->assertJsonPath('data.bank_transfer.bank_name', 'Admin bank')
+            ->assertJsonPath('data.bank_transfer.iban', 'PS00TEST')
             ->assertJsonPath('data.platform_name', 'Farah')
             ->assertJsonPath('data.support_email', 'help@example.test');
 
@@ -302,6 +316,75 @@ class AdminOperationsTest extends TestCase
         $this->assertStringContainsString("'=HYPERLINK", $response->streamedContent());
         $this->assertStringContainsString('CSV-TEST-1', $response->streamedContent());
         $this->assertDatabaseHas('admin_audit_logs', ['action' => 'report_exported', 'resource_type' => 'csv_report']);
+    }
+
+    public function test_finance_admin_activates_paid_plan_after_reviewing_transfer(): void
+    {
+        $admin = $this->admin('finance.reviewer');
+        $provider = User::factory()->create(['user_type' => 'provider', 'status' => 'active']);
+        $trialEnd = now()->addDays(10);
+        $trial = ProviderSubscription::create([
+            'provider_id' => $provider->id,
+            'subscription_plan_id' => SubscriptionPlan::where('slug', 'free-trial')->value('id'),
+            'status' => 'trialing',
+            'trial_ends_at' => $trialEnd,
+            'current_period_start' => now()->subDays(20),
+            'current_period_end' => $trialEnd,
+        ]);
+        $monthly = SubscriptionPlan::where('slug', 'monthly')->firstOrFail();
+        $payment = SubscriptionPayment::create([
+            'provider_id' => $provider->id,
+            'subscription_plan_id' => $monthly->id,
+            'amount' => 100,
+            'currency' => 'ILS',
+            'proof_path' => 'subscription-proofs/test.jpg',
+            'status' => 'submitted',
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.finance.subscriptions'))
+            ->assertOk()
+            ->assertSee($provider->name);
+
+        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'confirmed'])
+            ->assertRedirect(route('admin.finance.subscriptions'));
+
+        $active = $provider->activeProviderSubscription()->firstOrFail();
+        $this->assertSame('active', $active->status);
+        $this->assertSame($monthly->id, $active->subscription_plan_id);
+        // The ten trial days left carry over to the paid month.
+        $this->assertTrue($active->current_period_end->isSameDay($trialEnd->copy()->addMonthNoOverflow()));
+        $this->assertSame('replaced', $trial->fresh()->status);
+        $this->assertDatabaseHas('subscription_payments', ['id' => $payment->id, 'status' => 'confirmed', 'provider_subscription_id' => $active->id]);
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'subscription_payment_confirmed', 'resource_id' => $payment->id]);
+        $this->assertDatabaseHas('app_notifications', ['user_id' => $provider->id, 'type' => 'subscription_activated']);
+
+        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'rejected', 'review_note' => 'Second review attempt'])
+            ->assertStatus(409);
+    }
+
+    public function test_rejected_transfer_needs_a_note_and_activates_nothing(): void
+    {
+        $admin = $this->admin('finance.reviewer');
+        $provider = User::factory()->create(['user_type' => 'provider', 'status' => 'active']);
+        $payment = SubscriptionPayment::create([
+            'provider_id' => $provider->id,
+            'subscription_plan_id' => SubscriptionPlan::where('slug', 'yearly')->value('id'),
+            'amount' => 175,
+            'currency' => 'ILS',
+            'proof_path' => 'subscription-proofs/test.jpg',
+            'status' => 'submitted',
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'rejected'])
+            ->assertSessionHasErrors('review_note');
+
+        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), [
+            'decision' => 'rejected',
+            'review_note' => 'Transfer amount does not match.',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('subscription_payments', ['id' => $payment->id, 'status' => 'rejected']);
+        $this->assertDatabaseCount('provider_subscriptions', 0);
     }
 
     private function admin(string $role): User

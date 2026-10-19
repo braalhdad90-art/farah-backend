@@ -7,8 +7,8 @@
     },
     "servers": [
         {
-            "url": "https://farah-production.up.railway.app",
-            "description": "سيرفر الإنتاج (Railway Production)"
+            "url": "http://localhost",
+            "description": "السيرفر الحالي"
         },
         {
             "url": "http://127.0.0.1:8000",
@@ -3329,11 +3329,11 @@
                 "tags": [
                     "Provider Subscriptions"
                 ],
-                "summary": "عرض الاشتراك الحالي",
+                "summary": "عرض الاشتراك الحالي وإشعار التحويل قيد المراجعة",
                 "operationId": "caaad0261adb547b1338063ed7355152",
                 "responses": {
                     "200": {
-                        "description": "بيانات الاشتراك الحالي"
+                        "description": "بيانات الاشتراك الحالي و pending_payment"
                     }
                 },
                 "security": [
@@ -3346,12 +3346,12 @@
                 "tags": [
                     "Provider Subscriptions"
                 ],
-                "summary": "تفعيل اشتراك مزود الخدمة",
+                "summary": "تفعيل الشهر المجاني أو إرسال إشعار تحويل لباقة مدفوعة",
                 "operationId": "7581cccd69cd6b90c347f38d3d642010",
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "required": [
                                     "plan"
@@ -3359,7 +3359,12 @@
                                 "properties": {
                                     "plan": {
                                         "type": "string",
-                                        "example": "free-trial"
+                                        "example": "monthly"
+                                    },
+                                    "proof": {
+                                        "description": "مطلوب للباقات المدفوعة",
+                                        "type": "string",
+                                        "format": "binary"
                                     }
                                 },
                                 "type": "object"
@@ -3368,11 +3373,17 @@
                     }
                 },
                 "responses": {
+                    "200": {
+                        "description": "الشهر المجاني مفعّل مسبقًا"
+                    },
                     "201": {
-                        "description": "تم تفعيل الاشتراك"
+                        "description": "تم تفعيل الشهر المجاني أو استلام إشعار التحويل"
                     },
                     "409": {
-                        "description": "تم استخدام الاشتراك المجاني مسبقًا"
+                        "description": "تم استخدام الشهر المجاني أو يوجد إشعار قيد المراجعة"
+                    },
+                    "422": {
+                        "description": "بيانات غير صالحة"
                     }
                 },
                 "security": [

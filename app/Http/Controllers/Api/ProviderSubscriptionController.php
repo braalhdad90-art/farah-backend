@@ -26,7 +26,7 @@ class ProviderSubscriptionController extends Controller
         ]);
     }
 
-    #[OA\Get(path: "/api/provider/subscription", summary: "عرض الاشتراك الحالي", security: [["bearerAuth" => []]], tags: ["Provider Subscriptions"], responses: [new OA\Response(response: 200, description: "بيانات الاشتراك الحالي")])]
+    #[OA\Get(path: "/api/provider/subscription", summary: "عرض الاشتراك الحالي وإشعار التحويل قيد المراجعة", security: [["bearerAuth" => []]], tags: ["Provider Subscriptions"], responses: [new OA\Response(response: 200, description: "بيانات الاشتراك الحالي و pending_payment")])]
     public function current(Request $request)
     {
         $subscription = $request->user()->providerSubscriptions()
@@ -37,29 +37,46 @@ class ProviderSubscriptionController extends Controller
         return response()->json([
             'status' => true,
             'data' => $subscription,
+            'pending_payment' => $request->user()->subscriptionPayments()
+                ->with('plan')
+                ->where('status', 'submitted')
+                ->latest()
+                ->first(),
         ]);
     }
 
-    #[OA\Post(path: "/api/provider/subscription", summary: "تفعيل اشتراك مزود الخدمة", security: [["bearerAuth" => []]], tags: ["Provider Subscriptions"], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ["plan"], properties: [new OA\Property(property: "plan", type: "string", example: "free-trial")])), responses: [new OA\Response(response: 201, description: "تم تفعيل الاشتراك"), new OA\Response(response: 409, description: "تم استخدام الاشتراك المجاني مسبقًا")])]
+    // فرح: تفعيل الاشتراك. الشهر المجاني يتفعّل فورًا، والباقات المدفوعة تحتاج إشعار تحويل (proof)
+    // يراجعه الأدمن من لوحة التحكم: المالية ← اشتراكات المزودين (AdminFinanceController).
+    #[OA\Post(
+        path: "/api/provider/subscription",
+        summary: "تفعيل الشهر المجاني أو إرسال إشعار تحويل لباقة مدفوعة",
+        security: [["bearerAuth" => []]],
+        tags: ["Provider Subscriptions"],
+        requestBody: new OA\RequestBody(required: true, content: new OA\MediaType(
+            mediaType: "multipart/form-data",
+            schema: new OA\Schema(required: ["plan"], properties: [
+                new OA\Property(property: "plan", type: "string", example: "monthly"),
+                new OA\Property(property: "proof", type: "string", format: "binary", description: "مطلوب للباقات المدفوعة"),
+            ])
+        )),
+        responses: [
+            new OA\Response(response: 200, description: "الشهر المجاني مفعّل مسبقًا"),
+            new OA\Response(response: 201, description: "تم تفعيل الشهر المجاني أو استلام إشعار التحويل"),
+            new OA\Response(response: 409, description: "تم استخدام الشهر المجاني أو يوجد إشعار قيد المراجعة"),
+            new OA\Response(response: 422, description: "بيانات غير صالحة"),
+        ]
+    )]
     public function subscribe(Request $request)
     {
         $validated = $request->validate([
             'plan' => ['required', 'string', 'exists:subscription_plans,slug'],
         ]);
 
-        // Keep accepting the plan chosen in the app so Flutter can preserve the
-        // existing screen flow. At launch, however, every first subscription is
-        // one free month; paid plans will be enabled in a later release.
-        SubscriptionPlan::where('slug', $validated['plan'])
-            ->where('is_active', true)
-            ->firstOrFail();
-
-        $trialPlan = SubscriptionPlan::where('slug', 'free-trial')
+        $plan = SubscriptionPlan::where('slug', $validated['plan'])
             ->where('is_active', true)
             ->firstOrFail();
 
         $provider = $request->user();
-        $now = Carbon::now();
 
         abort_unless(
             $provider->status === 'active'
@@ -67,6 +84,25 @@ class ProviderSubscriptionController extends Controller
             403,
             'يجب اعتماد حساب مزود الخدمة قبل تفعيل الاشتراك.'
         );
+
+        return (float) $plan->price > 0
+            ? $this->submitPaidPlan($request, $provider, $plan)
+            : $this->startFreeTrial($provider, $plan);
+    }
+
+    private function startFreeTrial($provider, SubscriptionPlan $trialPlan)
+    {
+        $now = Carbon::now();
+
+        // Approving a provider already opens the free month, so selecting it again just confirms it.
+        $activeTrial = $provider->activeProviderSubscription()->with('plan')->first();
+        if ($activeTrial && $activeTrial->status === 'trialing') {
+            return response()->json([
+                'status' => true,
+                'message' => 'الشهر المجاني مفعّل على حسابك.',
+                'data' => $activeTrial,
+            ]);
+        }
 
         $subscription = DB::transaction(function () use ($provider, $trialPlan, $now) {
             $lockedProvider = $provider->newQuery()->whereKey($provider->id)->lockForUpdate()->firstOrFail();
@@ -87,14 +123,51 @@ class ProviderSubscriptionController extends Controller
         if (! $subscription) {
             return response()->json([
                 'status' => false,
-                'message' => 'تم استخدام الشهر المجاني مسبقًا. ستتوفر الباقات المدفوعة في تحديث لاحق.',
+                'message' => 'تم استخدام الشهر المجاني مسبقًا. اختر باقة مدفوعة للمتابعة.',
             ], 409);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'تم تفعيل الشهر المجاني بنجاح. الباقات المدفوعة ستتوفر في تحديث لاحق.',
+            'message' => 'تم تفعيل الشهر المجاني بنجاح.',
             'data' => $subscription->load('plan'),
+        ], 201);
+    }
+
+    private function submitPaidPlan(Request $request, $provider, SubscriptionPlan $plan)
+    {
+        $request->validate([
+            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+        ], [
+            'proof.required' => 'يرجى رفع إشعار التحويل البنكي.',
+        ]);
+
+        $payment = DB::transaction(function () use ($request, $provider, $plan) {
+            $lockedProvider = $provider->newQuery()->whereKey($provider->id)->lockForUpdate()->firstOrFail();
+            if ($lockedProvider->subscriptionPayments()->where('status', 'submitted')->exists()) {
+                return null;
+            }
+
+            return $lockedProvider->subscriptionPayments()->create([
+                'subscription_plan_id' => $plan->id,
+                'amount' => $plan->price,
+                'currency' => $plan->currency,
+                'proof_path' => $request->file('proof')->store('subscription-proofs', 'local'),
+                'status' => 'submitted',
+            ]);
+        });
+
+        if (! $payment) {
+            return response()->json([
+                'status' => false,
+                'message' => 'لديك إشعار تحويل قيد المراجعة بالفعل.',
+            ], 409);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'تم استلام إشعار التحويل، وسيتم تفعيل اشتراكك بعد مراجعة الإدارة.',
+            'data' => $payment->load('plan'),
         ], 201);
     }
 
