@@ -10,6 +10,8 @@ class UpdateProfileRequest extends AuthApiRequest
             'name' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:45',
             'city_id' => 'nullable|exists:cities,id',
+            // فرح: حقل "العنوان" في تعديل الملف الشخصي (كان التطبيق يرسله ولا يُحفظ).
+            'region' => 'nullable|string|max:1000',
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:4096',
         ];
     }

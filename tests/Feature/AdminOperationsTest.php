@@ -71,6 +71,24 @@ class AdminOperationsTest extends TestCase
         ])->assertRedirect();
         $this->assertDatabaseHas('categories', ['slug' => 'wedding-halls-admin']);
 
+        // فرح: إدارة الأسئلة الشائعة لمركز المساعدة.
+        $this->actingAs($admin)->post(route('admin.faqs.create'), [
+            'audience' => 'provider',
+            'question' => 'How do I get paid?',
+            'answer' => 'Add your payout account.',
+            'sort_order' => 3,
+            'is_active' => 1,
+        ])->assertRedirect();
+        $faq = \App\Models\Faq::where('question', 'How do I get paid?')->firstOrFail();
+        $this->actingAs($admin)->put(route('admin.faqs.update', $faq), [
+            'audience' => 'all',
+            'question' => 'How do I get paid?',
+            'answer' => 'Updated answer.',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('faqs', ['id' => $faq->id, 'audience' => 'all', 'is_active' => false]);
+        $this->actingAs($admin)->delete(route('admin.faqs.delete', $faq))->assertRedirect();
+        $this->assertDatabaseMissing('faqs', ['id' => $faq->id]);
+
         $plan = SubscriptionPlan::where('slug', 'monthly')->firstOrFail();
         $this->actingAs($admin)->put(route('admin.plans.update', $plan), [
             'name' => 'Monthly revised',
@@ -155,6 +173,7 @@ class AdminOperationsTest extends TestCase
             'admin.team',
             'admin.categories',
             'admin.plans',
+            'admin.faqs',
             'admin.settings',
         ];
 

@@ -9,6 +9,7 @@ use App\Http\Requests\Api\UpdateProviderAvailabilityRequest;
 use App\Http\Requests\Api\UpdateProviderServiceVisibilityRequest;
 use App\Services\ProviderServiceManager;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: "Provider", description: "إدارة ملف مزود الخدمة وخدماته")]
@@ -314,7 +315,7 @@ class ProviderController extends Controller
         ]);
     }
 
-    #[OA\Post(path: "/api/provider/profile", summary: "تعديل بيانات المتجر", security: [["bearerAuth" => []]], tags: ["Provider"], requestBody: new OA\RequestBody(required: true, content: new OA\MediaType(mediaType: "multipart/form-data", schema: new OA\Schema(properties: [new OA\Property(property: "business_name", type: "string"), new OA\Property(property: "description", type: "string"), new OA\Property(property: "city_id", type: "integer"), new OA\Property(property: "address", type: "string"), new OA\Property(property: "cover_image", type: "string", format: "binary")]))), responses: [new OA\Response(response: 200, description: "تم الحفظ")])]
+    #[OA\Post(path: "/api/provider/profile", summary: "تعديل بيانات المتجر", security: [["bearerAuth" => []]], tags: ["Provider"], requestBody: new OA\RequestBody(required: true, content: new OA\MediaType(mediaType: "multipart/form-data", schema: new OA\Schema(properties: [new OA\Property(property: "business_name", type: "string"), new OA\Property(property: "description", type: "string"), new OA\Property(property: "city_id", type: "integer"), new OA\Property(property: "address", type: "string"), new OA\Property(property: "category_id", type: "integer"), new OA\Property(property: "commercial_register_number", type: "string", nullable: true), new OA\Property(property: "cover_image", type: "string", format: "binary"), new OA\Property(property: "logo", type: "string", format: "binary")]))), responses: [new OA\Response(response: 200, description: "تم الحفظ")])]
     public function updateStoreProfile(Request $request)
     {
         $data = $request->validate([
@@ -323,8 +324,12 @@ class ProviderController extends Controller
             'city_id' => ['required', 'exists:cities,id'],
             'address' => ['required', 'string', 'max:1000'],
             'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            // فرح: حقول شاشة "بيانات المتجر" الجديدة: فئة الخدمة، رقم السجل التجاري (اختياري)، وشعار المتجر.
+            'category_id' => ['sometimes', 'required', Rule::exists('categories', 'id')->where('status', 'active')],
+            'commercial_register_number' => ['nullable', 'string', 'max:50'],
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
-        $this->providerServices->updateStoreProfile($request->user(), $data, $request->file('cover_image'));
+        $this->providerServices->updateStoreProfile($request->user(), $data, $request->file('cover_image'), $request->file('logo'));
 
         return response()->json([
             'icon' => 'success',
