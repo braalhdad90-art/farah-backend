@@ -324,7 +324,7 @@ return [
      * Constants which can be used in annotations
      */
     'constants' => [
-        'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', env('APP_URL')),
+        'L5_SWAGGER_CONST_HOST' => (fn (string $url) => preg_match('#^https?://#i', $url) ? $url : 'https://'.$url)(env('L5_SWAGGER_CONST_HOST', env('APP_URL', 'http://localhost'))),
     ],
 ],
 ];
