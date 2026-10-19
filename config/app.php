@@ -52,7 +52,8 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    // فرح: لو APP_URL كُتب بدون https:// (مثل Railway) نضيفه، وإلا تتكرر روابط السويقر والصور.
+    'url' => (fn (string $url) => preg_match('#^https?://#i', $url) ? $url : 'https://'.$url)(env('APP_URL', 'http://localhost')),
 
     /*
     |--------------------------------------------------------------------------
