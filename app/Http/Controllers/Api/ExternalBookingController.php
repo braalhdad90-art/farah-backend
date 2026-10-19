@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreExternalBookingRequest;
+use App\Models\Booking;
 use App\Models\ExternalBooking;
+use App\Models\Service;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
@@ -32,6 +35,7 @@ class ExternalBookingController extends Controller
             'status' => true,
             'data' => $bookings->map(fn ($booking) => [
                 'id' => $booking->id,
+                'service_id' => $booking->service_id,
                 'customer_name' => $booking->customer_name,
                 'customer_phone' => $booking->customer_phone,
                 'service_name' => $booking->service_name,
@@ -83,29 +87,52 @@ class ExternalBookingController extends Controller
         $validated = $request->validated();
         $deposit = (float) ($validated['deposit_amount'] ?? 0);
         $total = (float) $validated['total_price'];
+        abort_if($deposit > $total, 422, 'العربون لا يمكن أن يتجاوز السعر الإجمالي.');
         $remaining = max(0, $total - $deposit);
 
-        $booking = ExternalBooking::create([
-            'provider_id' => $request->user()->id,
-            'customer_name' => $validated['customer_name'],
-            'customer_phone' => $validated['customer_phone'] ?? null,
-            'service_name' => $validated['service_name'],
-            'booking_date' => $validated['booking_date'],
-            'booking_time' => $validated['booking_time'] ?? null,
-            'total_price' => $total,
-            'deposit_amount' => $deposit,
-            'remaining_amount' => $remaining,
-            'payment_method' => $validated['payment_method'] ?? null,
-            'status' => $validated['status'] ?? 'pending',
-            'notes' => $validated['notes'] ?? null,
-            'source' => 'outside_app',
-        ]);
+        $booking = DB::transaction(function () use ($request, $validated, $deposit, $total, $remaining) {
+            $service = null;
+            if (! empty($validated['service_id'])) {
+                $service = Service::where('provider_id', $request->user()->id)->lockForUpdate()->find($validated['service_id']);
+                abort_unless($service, 422, 'الخدمة المختارة غير موجودة في متجرك.');
+                $date = $validated['booking_date'];
+                $taken = Booking::where('service_id', $service->id)
+                    ->whereDate('booking_date', $date)
+                    ->whereIn('workflow_status', ['provider_pending', 'payment_awaiting', 'review_under_proof', 'confirmed'])
+                    ->exists()
+                    || $service->unavailableDates()->whereDate('unavailable_date', $date)->exists();
+                abort_if($taken, 422, 'هذا التاريخ محجوز مسبقاً لهذه الخدمة.');
+                // Block the day so customers can't book it in the app.
+                $service->unavailableDates()->create([
+                    'unavailable_date' => $date,
+                    'reason' => 'حجز خارجي: '.$validated['customer_name'],
+                ]);
+            }
+
+            return ExternalBooking::create([
+                'provider_id' => $request->user()->id,
+                'service_id' => $service?->id,
+                'customer_name' => $validated['customer_name'],
+                'customer_phone' => $validated['customer_phone'] ?? null,
+                'service_name' => $service?->title ?? $validated['service_name'],
+                'booking_date' => $validated['booking_date'],
+                'booking_time' => $validated['booking_time'] ?? null,
+                'total_price' => $total,
+                'deposit_amount' => $deposit,
+                'remaining_amount' => $remaining,
+                'payment_method' => $validated['payment_method'] ?? null,
+                'status' => $validated['status'] ?? 'pending',
+                'notes' => $validated['notes'] ?? null,
+                'source' => 'outside_app',
+            ]);
+        });
 
         return response()->json([
             'status' => true,
             'message' => 'تم حفظ الحجز الخارجي بنجاح.',
             'data' => [
                 'id' => $booking->id,
+                'service_id' => $booking->service_id,
                 'customer_name' => $booking->customer_name,
                 'customer_phone' => $booking->customer_phone,
                 'service_name' => $booking->service_name,

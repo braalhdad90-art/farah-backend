@@ -291,6 +291,48 @@ class ProviderController extends Controller
     }
 
     #[OA\Get(path: "/api/provider/reviews", summary: "عرض تقييمات خدمات المزود", security: [["bearerAuth" => []]], tags: ["Provider"], responses: [new OA\Response(response: 200, description: "قائمة تقييمات العملاء")])]
+    #[OA\Put(path: "/api/provider/payout-account", summary: "حفظ حساب استلام الأرباح", security: [["bearerAuth" => []]], tags: ["Provider"], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(properties: [new OA\Property(property: "bank_name", type: "string"), new OA\Property(property: "account_number", type: "string"), new OA\Property(property: "iban", type: "string", nullable: true)])), responses: [new OA\Response(response: 200, description: "تم الحفظ")])]
+    public function updatePayoutAccount(Request $request)
+    {
+        $data = $request->validate([
+            'bank_name' => ['required', 'string', 'max:120'],
+            'account_number' => ['required', 'string', 'max:60'],
+            'iban' => ['nullable', 'string', 'max:60'],
+        ]);
+        $profile = $request->user()->providerProfile;
+        abort_unless($profile, 422, 'أكمل بيانات مزود الخدمة أولاً.');
+        $profile->update([
+            'payout_bank_name' => $data['bank_name'],
+            'payout_account_number' => $data['account_number'],
+            'payout_iban' => $data['iban'] ?? null,
+        ]);
+
+        return response()->json([
+            'icon' => 'success',
+            'title' => 'تم حفظ حساب استلام الأرباح.',
+            'data' => ['bank_name' => $profile->payout_bank_name, 'account_number' => $profile->payout_account_number, 'iban' => $profile->payout_iban],
+        ]);
+    }
+
+    #[OA\Post(path: "/api/provider/profile", summary: "تعديل بيانات المتجر", security: [["bearerAuth" => []]], tags: ["Provider"], requestBody: new OA\RequestBody(required: true, content: new OA\MediaType(mediaType: "multipart/form-data", schema: new OA\Schema(properties: [new OA\Property(property: "business_name", type: "string"), new OA\Property(property: "description", type: "string"), new OA\Property(property: "city_id", type: "integer"), new OA\Property(property: "address", type: "string"), new OA\Property(property: "cover_image", type: "string", format: "binary")]))), responses: [new OA\Response(response: 200, description: "تم الحفظ")])]
+    public function updateStoreProfile(Request $request)
+    {
+        $data = $request->validate([
+            'business_name' => ['required', 'string', 'max:150'],
+            'description' => ['required', 'string', 'max:5000'],
+            'city_id' => ['required', 'exists:cities,id'],
+            'address' => ['required', 'string', 'max:1000'],
+            'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+        ]);
+        $this->providerServices->updateStoreProfile($request->user(), $data, $request->file('cover_image'));
+
+        return response()->json([
+            'icon' => 'success',
+            'title' => 'تم حفظ بيانات المتجر.',
+            'data' => $this->providerServices->onboarding($request->user()),
+        ]);
+    }
+
     public function reviews(Request $request)
     {
         $reviews = $this->providerServices->reviews($request->user());

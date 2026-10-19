@@ -3306,10 +3306,98 @@
                     "Provider"
                 ],
                 "summary": "عرض تقييمات خدمات المزود",
-                "operationId": "3e2a25d52aa3805ba7ea6aad4636a2a9",
+                "operationId": "d97d01ae990df5a6575f114238225dee",
                 "responses": {
                     "200": {
                         "description": "قائمة تقييمات العملاء"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/payout-account": {
+            "put": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "حفظ حساب استلام الأرباح",
+                "operationId": "111874a03395e813ca59136a472bdc6a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "bank_name": {
+                                        "type": "string"
+                                    },
+                                    "account_number": {
+                                        "type": "string"
+                                    },
+                                    "iban": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم الحفظ"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/provider/profile": {
+            "post": {
+                "tags": [
+                    "Provider"
+                ],
+                "summary": "تعديل بيانات المتجر",
+                "operationId": "bc2132666d524fd04671a08923867769",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "business_name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "city_id": {
+                                        "type": "integer"
+                                    },
+                                    "address": {
+                                        "type": "string"
+                                    },
+                                    "cover_image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "تم الحفظ"
                     }
                 },
                 "security": [

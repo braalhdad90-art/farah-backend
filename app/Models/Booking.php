@@ -32,6 +32,8 @@ class Booking extends Model
         'confirmed_at',
         'completed_at',
         'provider_responded_at',
+        'review_reminded_at',
+        'review_overdue_notified_at',
         'notes',
     ];
 
@@ -48,6 +50,8 @@ class Booking extends Model
         'confirmed_at' => 'datetime',
         'completed_at' => 'datetime',
         'provider_responded_at' => 'datetime',
+        'review_reminded_at' => 'datetime',
+        'review_overdue_notified_at' => 'datetime',
     ];
 
     public function user()

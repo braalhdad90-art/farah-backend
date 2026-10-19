@@ -2,6 +2,7 @@
 
 use App\Services\BookingExpirationService;
 use App\Models\AdminAuditLog;
+use App\Models\Booking;
 use App\Models\AppSetting;
 use App\Models\ProviderProfile;
 use App\Models\User;
@@ -97,3 +98,43 @@ Artisan::command('providers:purge-documents', function (): void {
 })->purpose('Delete provider identity documents 30 days after the review decision');
 
 Schedule::command('providers:purge-documents')->daily()->withoutOverlapping();
+
+// فرح: تذكير المزود بمراجعة إثبات الدفع قبل انتهاء المهلة بـ 4 ساعات، وإشعاره عند انتهائها.
+Artisan::command('bookings:payment-review-reminders', function (NotificationService $notifications): void {
+    $pending = Booking::with('user:id,name')
+        ->where('workflow_status', 'review_under_proof')
+        ->whereNotNull('expires_at');
+
+    (clone $pending)->whereNull('review_reminded_at')
+        ->whereBetween('expires_at', [now(), now()->addHours(4)])
+        ->each(function (Booking $booking) use ($notifications): void {
+            $hours = max(1, (int) ceil(now()->diffInMinutes($booking->expires_at) / 60));
+            $at = $booking->expires_at->copy()->setTimezone(config('app.timezone'));
+            $notifications->send(
+                $booking->provider_id,
+                'payment_review_reminder',
+                "تبقى {$hours} ساعات لمراجعة اشعار دفع {$booking->user?->name}",
+                'تنتهي المهلة الساعة '.$at->format('g:i').' '.($at->hour < 12 ? 'ص' : 'م'),
+                'booking',
+                $booking->id,
+                ['expires_at' => $booking->expires_at->toIso8601String()]
+            );
+            $booking->update(['review_reminded_at' => now()]);
+        });
+
+    (clone $pending)->whereNull('review_overdue_notified_at')
+        ->where('expires_at', '<', now())
+        ->each(function (Booking $booking) use ($notifications): void {
+            $notifications->send(
+                $booking->provider_id,
+                'payment_review_overdue',
+                "انتهت مهلة مراجعة اشعار دفع {$booking->user?->name}",
+                'يرجى المراجعة في اقرب وقت',
+                'booking',
+                $booking->id
+            );
+            $booking->update(['review_overdue_notified_at' => now()]);
+        });
+})->purpose('Remind providers to review deposit proofs before and after the deadline');
+
+Schedule::command('bookings:payment-review-reminders')->everyFifteenMinutes()->withoutOverlapping();

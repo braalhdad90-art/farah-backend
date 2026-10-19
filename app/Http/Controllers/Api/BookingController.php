@@ -205,7 +205,7 @@ class BookingController extends Controller
             return $booking->fresh(['service.images', 'payments']);
         });
 
-        $this->notifications->send($booking->provider_id, 'payment_proof_submitted', 'إثبات دفع جديد', 'رفع العميل إثبات تحويل للعربون؛ راجعه لتأكيد الحجز.', 'booking', $booking->id, ['reference' => $booking->reference]);
+        $this->notifications->send($booking->provider_id, 'payment_proof_submitted', 'اشعار دفع من '.$request->user()->name, 'بانتظار المراجعة', 'booking', $booking->id, ['reference' => $booking->reference]);
 
         return $this->success('تم رفع إثبات التحويل وهو الآن قيد مراجعة مزود الخدمة.', $this->bookingData($booking), 201);
     }

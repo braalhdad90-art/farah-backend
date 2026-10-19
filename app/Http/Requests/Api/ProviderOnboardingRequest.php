@@ -12,6 +12,8 @@ class ProviderOnboardingRequest extends BaseApiRequest
             'description' => 'required|string|max:5000',
             'city_id' => 'required|exists:cities,id',
             'address' => 'required|string|max:1000',
+            // فرح: "حساب الأرباح" من شاشة بيانات الحساب.
+            'profit_account' => 'nullable|string|max:60',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'identity_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:8192',

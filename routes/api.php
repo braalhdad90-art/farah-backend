@@ -125,6 +125,8 @@ Route::middleware(['auth:sanctum', 'throttle:authenticated'])->group(function ()
             Route::put('/services/{id}/availability', [ProviderController::class, 'updateAvailability']);
             Route::delete('/services/{id}', [ProviderController::class, 'destroyService']);
             Route::get('/reviews', [ProviderController::class, 'reviews']);
+            Route::put('/payout-account', [ProviderController::class, 'updatePayoutAccount']);
+            Route::post('/profile', [ProviderController::class, 'updateStoreProfile']);
         });
     });
 });
