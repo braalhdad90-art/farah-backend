@@ -11,6 +11,7 @@ use App\Http\Requests\Api\ProviderBookingDecisionRequest;
 use App\Http\Requests\Api\ReviewBookingPaymentRequest;
 use App\Http\Requests\Api\SubmitBookingPaymentRequest;
 use App\Http\Requests\Api\UpdateProviderPaymentInstructionsRequest;
+use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\Service;
@@ -159,8 +160,8 @@ class BookingController extends Controller
                 'remaining_amount' => (float) $booking->selected_price - $deposit,
                 'provider_note' => $request->provider_note,
                 'payment_instructions' => $instructions,
-                'payment_due_at' => now()->addDay(),
-                'expires_at' => now()->addDay(),
+                'payment_due_at' => now()->addHours(AppSetting::hours('payment_due_hours')),
+                'expires_at' => now()->addHours(AppSetting::hours('payment_due_hours')),
             ]);
 
             return $booking->fresh(['service.images', 'payments']);
@@ -221,7 +222,8 @@ class BookingController extends Controller
             if ($request->decision === 'confirmed') {
                 $booking->update(['status' => 'confirmed', 'workflow_status' => 'confirmed', 'confirmed_at' => now(), 'expires_at' => null]);
             } else {
-                $booking->update(['workflow_status' => 'payment_awaiting', 'payment_due_at' => now()->addDay(), 'expires_at' => now()->addDay()]);
+                $dueAt = now()->addHours(AppSetting::hours('payment_due_hours'));
+                $booking->update(['workflow_status' => 'payment_awaiting', 'payment_due_at' => $dueAt, 'expires_at' => $dueAt]);
             }
 
             return $booking->fresh(['service.images', 'payments']);

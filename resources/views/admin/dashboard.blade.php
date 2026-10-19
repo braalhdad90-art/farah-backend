@@ -9,7 +9,18 @@
         'approved_providers' => 'المزودون المعتمدون',
         'providers' => 'إجمالي المزودين',
         'bookings' => 'إجمالي الحجوزات',
-        'payment_proofs_pending' => 'إثباتات دفع بانتظار المراجعة',
+        'subscription_proofs_pending' => 'إشعارات اشتراك بانتظار المراجعة',
+        'subscriptions_expiring' => 'اشتراكات تنتهي خلال 7 أيام',
+    ];
+    $bookingStatusLabels = [
+        'provider_pending' => 'بانتظار رد المزود',
+        'payment_awaiting' => 'بانتظار الدفع',
+        'review_under_proof' => 'إثبات دفع قيد مراجعة المزود',
+        'confirmed' => 'مؤكدة',
+        'completed' => 'مكتملة',
+        'rejected' => 'مرفوضة',
+        'cancelled' => 'ملغاة',
+        'expired' => 'منتهية المهلة',
     ];
     $statIcons = [
         'active_users' => 'fa-user-group',
@@ -17,7 +28,8 @@
         'approved_providers' => 'fa-user-check',
         'providers' => 'fa-briefcase',
         'bookings' => 'fa-calendar-check',
-        'payment_proofs_pending' => 'fa-money-check-dollar',
+        'subscription_proofs_pending' => 'fa-receipt',
+        'subscriptions_expiring' => 'fa-hourglass-half',
     ];
     $greeting = now()->hour < 12 ? 'صباح الخير' : 'مساء الخير';
 @endphp
@@ -70,11 +82,28 @@
             <article class="card h-100">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div><span class="text-muted small">المالية</span><h5 class="fw-bold mt-1 mb-2">مراجعة إثباتات الدفع</h5></div>
+                        <div><span class="text-muted small">المالية</span><h5 class="fw-bold mt-1 mb-2">إشعارات تحويل الاشتراكات</h5></div>
                         <span class="identity-avatar"><i class="fa-solid fa-receipt"></i></span>
                     </div>
-                    <p class="text-muted mb-3">عدد الإثباتات المعلقة: <strong class="text-dark">{{ number_format($stats['payment_proofs_pending'] ?? 0) }}</strong>.</p>
-                    <a href="{{ route('admin.finance.payments') }}" class="btn btn-primary"><i class="fa-solid fa-arrow-left ms-2"></i>مراجعة الدفعات</a>
+                    <p class="text-muted mb-3">عدد الإشعارات المعلقة: <strong class="text-dark">{{ number_format($stats['subscription_proofs_pending'] ?? 0) }}</strong>.</p>
+                    <a href="{{ route('admin.finance.subscriptions') }}" class="btn btn-primary"><i class="fa-solid fa-arrow-left ms-2"></i>مراجعة الإشعارات</a>
+                </div>
+            </article>
+        </div>
+    @endif
+    @if($bookingsByStatus->isNotEmpty())
+        <div class="col-lg-6">
+            <article class="card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div><span class="text-muted small">الحجوزات</span><h5 class="fw-bold mt-1 mb-0">الحجوزات حسب الحالة</h5></div>
+                        <span class="identity-avatar"><i class="fa-solid fa-calendar-check"></i></span>
+                    </div>
+                    <ul class="list-unstyled mb-0">
+                        @foreach($bookingsByStatus as $status => $total)
+                            <li class="d-flex justify-content-between border-bottom py-2"><span>{{ $bookingStatusLabels[$status] ?? $status }}</span><strong>{{ number_format($total) }}</strong></li>
+                        @endforeach
+                    </ul>
                 </div>
             </article>
         </div>

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Hash;
 
 class CreateAdminAccount extends Command
 {
-    protected $signature = 'admin:create {--name= : Administrator name} {--email= : Email address} {--role=system.admin : Admin role: ops.moderator|finance.reviewer|system.admin} {--password= : Secure password value (if omitted, prompt securely)}';
+    protected $signature = 'admin:create {--name= : Administrator name} {--email= : Email address} {--role=system.admin : Admin role: ops.moderator|finance.reviewer|system.admin} {--password= : Secure password value (if omitted, prompt securely)} {--if-missing : Do nothing when an account with this email already exists}';
 
     protected $description = 'Create a protected admin account and assign the requested role';
 
@@ -23,6 +23,12 @@ class CreateAdminAccount extends Command
             $this->error('Invalid admin role. Choose one of: ops.moderator, finance.reviewer, system.admin.');
 
             return self::FAILURE;
+        }
+
+        if ($this->option('if-missing') && $email && User::where('email', strtolower(trim($email)))->exists()) {
+            $this->info('Admin account already exists: '.strtolower(trim($email)));
+
+            return self::SUCCESS;
         }
 
         if (! $password) {

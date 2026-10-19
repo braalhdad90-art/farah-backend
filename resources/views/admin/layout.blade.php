@@ -18,9 +18,11 @@
     }
 
     if (in_array($role, ['finance.reviewer', 'system.admin'], true)) {
-        $navItems[] = ['label' => 'مراجعة الدفعات', 'icon' => 'fa-money-check-dollar', 'route' => route('admin.finance.payments'), 'active' => request()->routeIs('admin.finance.payments')];
-        $navItems[] = ['label' => 'اشتراكات المزودين', 'icon' => 'fa-receipt', 'route' => route('admin.finance.subscriptions'), 'active' => request()->routeIs('admin.finance.subscriptions')];
+        $navItems[] = ['label' => 'دفعات الحجوزات', 'icon' => 'fa-money-check-dollar', 'route' => route('admin.finance.payments'), 'active' => request()->routeIs('admin.finance.payments')];
+        $navItems[] = ['label' => 'اشتراكات المزودين', 'icon' => 'fa-receipt', 'route' => route('admin.finance.subscriptions'), 'active' => request()->routeIs('admin.finance.subscription*')];
         $navItems[] = ['label' => 'الاستردادات', 'icon' => 'fa-arrow-rotate-left', 'route' => route('admin.finance.refunds'), 'active' => request()->routeIs('admin.finance.refunds*')];
+        $navItems[] = ['label' => 'تحويلات المزودين', 'icon' => 'fa-money-bill-transfer', 'route' => route('admin.finance.payouts'), 'active' => request()->routeIs('admin.finance.payouts*')];
+        $navItems[] = ['label' => 'تقرير الاشتراكات', 'icon' => 'fa-file-csv', 'route' => route('admin.finance.export.subscriptions'), 'active' => false];
         $navItems[] = ['label' => 'تقرير الدفعات', 'icon' => 'fa-file-invoice-dollar', 'route' => route('admin.finance.export.payments'), 'active' => false];
     }
 

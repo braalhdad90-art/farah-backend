@@ -38,6 +38,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', 'admin.idle', 'a
     });
     Route::middleware('admin:system.admin')->group(function () {
         Route::get('/team', [AdminController::class, 'team'])->name('team');
+        Route::post('/team', [AdminController::class, 'createAdmin'])->name('team.create');
         Route::post('/team/{user}/role', [AdminController::class, 'updateAdminRole'])->name('team.update_role');
         Route::get('/categories', [AdminController::class, 'categories'])->name('categories');
         Route::post('/categories', [AdminController::class, 'createCategory'])->name('categories.create');
@@ -53,8 +54,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', 'admin.idle', 'a
         Route::get('/payments/{payment}/proof', [AdminFinanceController::class, 'proof'])
             ->middleware('signed')
             ->name('payment.proof');
-        Route::post('/payments/{payment}/review', [AdminFinanceController::class, 'review'])->name('payment.review');
         Route::get('/subscriptions', [AdminFinanceController::class, 'subscriptionPayments'])->name('subscriptions');
+        Route::get('/subscriptions/{payment}', [AdminFinanceController::class, 'showSubscriptionPayment'])->name('subscription.show');
         Route::get('/subscriptions/{payment}/proof', [AdminFinanceController::class, 'subscriptionProof'])
             ->middleware('signed')
             ->name('subscription.proof');
@@ -63,6 +64,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', 'admin.idle', 'a
         Route::post('/refunds/{booking}', [AdminFinanceController::class, 'createRefund'])->name('refunds.create');
         Route::post('/refunds/{refund}/decision', [AdminFinanceController::class, 'refundDecision'])->name('refunds.decision');
         Route::get('/export/payments.csv', [AdminController::class, 'exportPaymentsCsv'])->name('export.payments');
+        Route::get('/export/subscriptions.csv', [AdminController::class, 'exportSubscriptionsCsv'])->name('export.subscriptions');
+        Route::get('/payouts', [AdminFinanceController::class, 'payouts'])->name('payouts');
+        Route::post('/payouts', [AdminFinanceController::class, 'createPayout'])->name('payouts.create');
     });
     Route::post('/logout', [AdminController::class, 'logout'])->name('logout');
 });

@@ -21,6 +21,16 @@ php artisan migrate --force
 php artisan db:seed --force
 php artisan l5-swagger:generate
 
+# فرح: أول حساب أدمن. عرّف ADMIN_EMAIL و ADMIN_PASSWORD (و ADMIN_NAME اختياري) في متغيرات Railway.
+# لا يغيّر شيئًا إذا كان الحساب موجودًا، فتعديلاته من لوحة التحكم تبقى كما هي.
+if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASSWORD" ]; then
+    php artisan admin:create --if-missing \
+        --name="${ADMIN_NAME:-مدير النظام}" \
+        --email="$ADMIN_EMAIL" \
+        --password="$ADMIN_PASSWORD" \
+        --role=system.admin --no-interaction || true
+fi
+
 # Laravel scheduler (bookings:expire-stale every five minutes).
 (
     while true; do

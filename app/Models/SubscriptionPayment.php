@@ -14,6 +14,8 @@ class SubscriptionPayment extends Model
         'currency',
         'proof_path',
         'status',
+        'review_locked_by',
+        'review_locked_until',
         'review_note',
         'reviewed_by',
         'reviewed_at',
@@ -24,7 +26,16 @@ class SubscriptionPayment extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'reviewed_at' => 'datetime',
+        'review_locked_until' => 'datetime',
     ];
+
+    /** Someone other than [$userId] is reviewing this proof right now. */
+    public function isLockedForOthers(int $userId): bool
+    {
+        return $this->review_locked_by !== null
+            && $this->review_locked_by !== $userId
+            && $this->review_locked_until?->isFuture();
+    }
 
     public function provider()
     {
@@ -34,6 +45,11 @@ class SubscriptionPayment extends Model
     public function plan()
     {
         return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
+    }
+
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'review_locked_by');
     }
 
     public function subscription()
