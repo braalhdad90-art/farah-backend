@@ -2794,6 +2794,20 @@
                                         "type": "string",
                                         "example": "[\"مواقف سيارات\",\"نظام صوتي\"]"
                                     },
+                                    "removable_features": {
+                                        "description": "مصفوفة JSON بأسماء المميزات القابلة للإزالة (من ضمن features).",
+                                        "type": "string"
+                                    },
+                                    "offer_price": {
+                                        "description": "سعر العرض، أقل من price.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "save_as_draft": {
+                                        "description": "حفظ كمسودة غير منشورة.",
+                                        "type": "boolean"
+                                    },
                                     "capacity": {
                                         "type": "integer",
                                         "nullable": true

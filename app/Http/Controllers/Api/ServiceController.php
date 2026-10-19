@@ -671,7 +671,7 @@ class ServiceController extends Controller
             ->all();
 
         $servicePrice = (float) $service->price;
-        $slots = collect($service->booking_slots ?: [])->map(function ($slot) use ($servicePrice) {
+        $slots = collect($service->effectiveBookingSlots())->map(function ($slot) use ($servicePrice) {
             return [
                 'label' => $slot['label'] ?? null,
                 'start_time' => $slot['start_time'] ?? null,
@@ -686,14 +686,16 @@ class ServiceController extends Controller
             $isPast = $date->lt($today);
             $dateBookings = $bookedSlots[$dateString] ?? [];
             $isBlocked = $blockedDates->has($dateString);
-            $daySlots = $slots->map(function ($slot) use ($dateBookings, $isPast, $isBlocked) {
+            $daySlots = $slots->map(function ($slot) use ($dateBookings, $isPast, $isBlocked, $dateString) {
                 $isBooked = collect($dateBookings)->contains(fn ($booking) =>
                     $booking['time'] === $slot['start_time'] &&
                     ($booking['slot'] === null || $booking['slot'] === $slot['label'])
                 );
+                // A slot that already started today can no longer be booked.
+                $started = $slot['start_time'] && Carbon::parse($dateString.' '.$slot['start_time'])->lte(now());
 
                 return array_merge($slot, [
-                    'is_available' => ! $isPast && ! $isBlocked && ! $isBooked,
+                    'is_available' => ! $isPast && ! $isBlocked && ! $isBooked && ! $started,
                 ]);
             })->values();
 
@@ -828,7 +830,7 @@ class ServiceController extends Controller
 
     private function resolveBookingSlot(Service $service, $request): ?array
     {
-        return collect($service->booking_slots ?: [])->first(function ($slot) use ($request) {
+        return collect($service->effectiveBookingSlots())->first(function ($slot) use ($request) {
             return ($slot['start_time'] ?? null) === $request->booking_time
                 && (($slot['label'] ?? null) === $request->booking_slot || blank($request->booking_slot));
         });

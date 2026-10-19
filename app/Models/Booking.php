@@ -31,6 +31,7 @@ class Booking extends Model
         'payment_due_at',
         'confirmed_at',
         'completed_at',
+        'provider_responded_at',
         'notes',
     ];
 
@@ -46,6 +47,7 @@ class Booking extends Model
         'payment_due_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'completed_at' => 'datetime',
+        'provider_responded_at' => 'datetime',
     ];
 
     public function user()

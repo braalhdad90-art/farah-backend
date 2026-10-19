@@ -18,6 +18,8 @@ class Service extends Model
         'service_type',
         'description',
         'features',
+        'removable_features',
+        'is_draft',
         'capacity',
         'area',
         'area_unit',
@@ -46,6 +48,8 @@ class Service extends Model
 
     protected $casts = [
         'features' => 'array',
+        'removable_features' => 'array',
+        'is_draft' => 'boolean',
         'capacity' => 'integer',
         'area' => 'float',
         'booking_slots' => 'array',
@@ -119,5 +123,17 @@ class Service extends Model
     public function unavailableDates()
     {
         return $this->hasMany(ServiceUnavailableDate::class);
+    }
+
+    /**
+     * فرح: خدمة بدون فترات حجز (مثل المسكات والكيك) تُحجز ليوم كامل.
+     */
+    public function effectiveBookingSlots(): array
+    {
+        return $this->booking_slots ?: [[
+            'label' => 'اليوم كامل',
+            'start_time' => '00:00',
+            'end_time' => '23:59',
+        ]];
     }
 }
