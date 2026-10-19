@@ -144,6 +144,45 @@ class ProviderStoreApiTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_package_items_keep_their_removable_switch(): void
+    {
+        $provider = $this->provider();
+        $this->activeSubscription($provider);
+
+        $this->actingAs($provider, 'sanctum')->postJson('/api/provider/services', [
+            'title' => 'Bride package',
+            'service_type' => 'package',
+            'price' => 2500,
+            'package_items' => [
+                ['title' => 'Bouquet', 'removable' => false],
+                ['title' => 'Mirror', 'removable' => true],
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.package_items.0.removable', false)
+            ->assertJsonPath('data.package_items.1.removable', true);
+    }
+
+    public function test_provider_sees_customer_phone_only_after_accepting(): void
+    {
+        $provider = $this->provider();
+        $provider->providerProfile->update(['payment_instructions' => 'Transfer to the store account 123456']);
+        $customer = User::factory()->create(['user_type' => 'customer', 'phone' => '0599000000']);
+        $booking = Booking::factory()->create(['provider_id' => $provider->id, 'user_id' => $customer->id, 'workflow_status' => 'provider_pending', 'status' => 'pending', 'selected_price' => 600, 'total_price' => 600]);
+
+        $this->actingAs($provider, 'sanctum')->getJson("/api/provider/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('data.customer.phone', null);
+
+        $this->actingAs($provider, 'sanctum')->postJson("/api/provider/bookings/{$booking->id}/decision", [
+            'decision' => 'accepted',
+            'deposit_amount' => 100,
+        ])->assertOk();
+
+        $this->actingAs($provider, 'sanctum')->getJson("/api/provider/bookings/{$booking->id}")
+            ->assertJsonPath('data.status', 'payment_awaiting')
+            ->assertJsonPath('data.customer.phone', '0599000000');
+    }
+
     private function provider(): User
     {
         $provider = User::factory()->create(['user_type' => 'provider', 'status' => 'active']);

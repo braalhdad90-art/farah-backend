@@ -9,7 +9,9 @@ class ServiceItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['service_id', 'title', 'description', 'quantity', 'sort_order'];
+    protected $fillable = ['service_id', 'title', 'description', 'quantity', 'removable', 'sort_order'];
+
+    protected $casts = ['removable' => 'boolean'];
 
     public function service()
     {

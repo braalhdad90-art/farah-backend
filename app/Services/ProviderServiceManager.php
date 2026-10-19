@@ -163,6 +163,7 @@ class ProviderServiceManager
                 'is_bookable' => $profile?->status === 'approved' && (bool) $subscription?->is_active && $activeServices > 0,
                 'registration_status' => $user->providerProfile?->registration_status,
                 'payment_instructions_configured' => filled($user->providerProfile?->payment_instructions),
+                'payment_instructions' => $user->providerProfile?->payment_instructions,
             ],
             'subscription' => $subscription ? [
                 'status' => $subscription->status,
@@ -389,7 +390,7 @@ class ProviderServiceManager
                 'name' => $name,
                 'removable' => in_array($name, $service->removable_features ?: [], true),
             ])->values(),
-            'package_items' => $service->items->map(fn ($item) => $item->only(['id', 'title', 'description', 'quantity', 'sort_order']))->values(),
+            'package_items' => $service->items->map(fn ($item) => $item->only(['id', 'title', 'description', 'quantity', 'removable', 'sort_order']))->values(),
             'pricing' => ['price' => (float) $service->price, 'original_price' => $service->original_price ? (float) $service->original_price : null, 'currency' => $service->currency, 'unit' => $service->pricing_unit, 'deposit_amount' => $service->deposit_amount, 'deposit_percentage' => $service->deposit_percentage],
             'execution_duration' => $service->execution_duration,
             'booking_periods' => $service->booking_slots ?: [],
@@ -475,6 +476,7 @@ class ProviderServiceManager
                 'title' => $item['title'],
                 'description' => $item['description'] ?? null,
                 'quantity' => $item['quantity'] ?? 1,
+                'removable' => (bool) ($item['removable'] ?? false),
                 'sort_order' => $item['sort_order'] ?? $index,
             ]);
         }

@@ -60,6 +60,7 @@ class ProviderServiceRequest extends BaseApiRequest
             'package_items.*.description' => 'nullable|string|max:1000',
             'package_items.*.quantity' => 'nullable|integer|min:1|max:999',
             'package_items.*.sort_order' => 'nullable|integer|min:0|max:999',
+            'package_items.*.removable' => 'nullable|boolean',
         ];
     }
 }
