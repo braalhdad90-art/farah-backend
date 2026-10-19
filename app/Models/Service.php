@@ -18,6 +18,8 @@ class Service extends Model
         'service_type',
         'description',
         'features',
+        'removable_features',
+        'is_draft',
         'capacity',
         'area',
         'area_unit',
@@ -46,6 +48,8 @@ class Service extends Model
 
     protected $casts = [
         'features' => 'array',
+        'removable_features' => 'array',
+        'is_draft' => 'boolean',
         'capacity' => 'integer',
         'area' => 'float',
         'booking_slots' => 'array',

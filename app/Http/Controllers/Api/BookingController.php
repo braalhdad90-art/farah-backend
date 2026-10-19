@@ -139,6 +139,7 @@ class BookingController extends Controller
                     'provider_note' => $request->provider_note,
                     'cancellation_reason' => $request->provider_note,
                     'expires_at' => null,
+                    'provider_responded_at' => now(),
                 ]);
 
                 return $booking->fresh(['service.images', 'payments']);
@@ -160,6 +161,7 @@ class BookingController extends Controller
                 'remaining_amount' => (float) $booking->selected_price - $deposit,
                 'provider_note' => $request->provider_note,
                 'payment_instructions' => $instructions,
+                'provider_responded_at' => now(),
                 'payment_due_at' => now()->addHours(AppSetting::hours('payment_due_hours')),
                 'expires_at' => now()->addHours(AppSetting::hours('payment_due_hours')),
             ]);

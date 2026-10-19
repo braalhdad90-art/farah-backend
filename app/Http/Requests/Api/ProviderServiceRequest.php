@@ -6,7 +6,7 @@ class ProviderServiceRequest extends BaseApiRequest
 {
     protected function prepareForValidation(): void
     {
-        foreach (['features', 'booking_slots', 'package_items', 'remove_image_ids'] as $field) {
+        foreach (['features', 'removable_features', 'booking_slots', 'package_items', 'remove_image_ids'] as $field) {
             if (is_string($this->input($field))) {
                 $decoded = json_decode($this->input($field), true);
                 if (json_last_error() === JSON_ERROR_NONE) {
@@ -26,6 +26,11 @@ class ProviderServiceRequest extends BaseApiRequest
             'service_type' => 'nullable|in:service,package',
             'features' => 'nullable|array',
             'features.*' => 'string|max:255',
+            // فرح: مميزات "قابلة للإزالة" يجب أن تكون من ضمن features.
+            'removable_features' => 'nullable|array',
+            'removable_features.*' => 'string|max:255|in_array:features.*',
+            'offer_price' => 'nullable|numeric|min:0|lt:price',
+            'save_as_draft' => 'nullable|boolean',
             'capacity' => 'nullable|integer|min:1',
             'area' => 'nullable|numeric|min:0',
             'area_unit' => 'nullable|string|max:20',

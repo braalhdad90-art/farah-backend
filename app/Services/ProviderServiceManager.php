@@ -6,6 +6,7 @@ use App\Models\Location;
 use App\Models\ProviderProfile;
 use App\Models\Service;
 use App\Models\ServiceImage;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Review;
 use App\Models\User;
@@ -148,12 +149,18 @@ class ProviderServiceManager
         $serviceIds = $services->pluck('id');
         $subscription = $user->activeProviderSubscription()->with('plan')->first();
         $pendingStates = ['provider_pending', 'payment_awaiting', 'review_under_proof'];
+        $activeServices = (clone $services)->where('status', 'active')->where('is_available', true)->count();
+        $profile = $user->providerProfile?->loadMissing('category');
 
         return [
             'provider' => [
                 'id' => $user->id,
-                'business_name' => $user->providerProfile?->business_name ?? $user->name,
-                'avatar' => $this->publicUrl($user->avatar ?: $user->providerProfile?->cover_image),
+                'business_name' => $profile?->business_name ?? $user->name,
+                'avatar' => $this->publicUrl($user->avatar ?: $profile?->cover_image),
+                'cover_image' => $this->publicUrl($profile?->cover_image),
+                'category' => $profile?->category?->only(['id', 'name']),
+                // فرح: شارة "متاح للحجز": حساب معتمد + اشتراك فعّال + خدمة منشورة واحدة على الأقل.
+                'is_bookable' => $profile?->status === 'approved' && (bool) $subscription?->is_active && $activeServices > 0,
                 'registration_status' => $user->providerProfile?->registration_status,
                 'payment_instructions_configured' => filled($user->providerProfile?->payment_instructions),
             ],
@@ -173,11 +180,13 @@ class ProviderServiceManager
             ],
             'counts' => [
                 'new_orders' => Booking::where('provider_id', $user->id)->where('workflow_status', 'provider_pending')->count(),
+                'new_orders_today' => Booking::where('provider_id', $user->id)->where('workflow_status', 'provider_pending')->whereDate('created_at', today())->count(),
                 'payment_reviews' => Booking::where('provider_id', $user->id)->where('workflow_status', 'review_under_proof')->count(),
                 'open_orders' => Booking::where('provider_id', $user->id)->whereIn('workflow_status', $pendingStates)->count(),
                 'upcoming_bookings' => Booking::where('provider_id', $user->id)->where('workflow_status', 'confirmed')->whereDate('booking_date', '>=', today())->count(),
                 'completed_bookings' => Booking::where('provider_id', $user->id)->where('workflow_status', 'completed')->count(),
-                'active_services' => (clone $services)->where('status', 'active')->where('is_available', true)->count(),
+                'active_services' => $activeServices,
+                'services' => (clone $services)->count(),
                 'hidden_services' => (clone $services)->where(function ($query) { $query->where('status', '!=', 'active')->orWhere('is_available', false); })->count(),
                 'packages' => (clone $services)->where('service_type', 'package')->count(),
             ],
@@ -185,8 +194,28 @@ class ProviderServiceManager
                 'average' => round((float) Review::whereIn('service_id', $serviceIds)->avg('rating'), 2),
                 'count' => Review::whereIn('service_id', $serviceIds)->count(),
             ],
+            'store_stats' => $this->storeStats($user),
+            'unread_notifications' => AppNotification::where('user_id', $user->id)->whereNull('read_at')->count(),
             'latest_orders' => Booking::with(['service.images', 'user'])->where('provider_id', $user->id)->latest()->limit(5)->get()
                 ->map(fn (Booking $booking) => $this->bookingCard($booking))->values(),
+        ];
+    }
+
+    // فرح: إحصائيات صفحة خدماتي من بيانات حقيقية. تكون null للمزود الجديد.
+    private function storeStats(User $user): array
+    {
+        $bookings = Booking::where('provider_id', $user->id);
+        $responses = (clone $bookings)->whereNotNull('provider_responded_at')->latest('provider_responded_at')->limit(100)
+            ->get(['created_at', 'provider_responded_at']);
+        // Requests that expired before the provider answered (accepting sets payment_due_at).
+        $missed = (clone $bookings)->where('workflow_status', 'expired')->whereNull('provider_responded_at')->whereNull('payment_due_at')->count();
+        $answered = (clone $bookings)->whereNotNull('provider_responded_at')->count();
+
+        return [
+            'completed_bookings' => (clone $bookings)->where('workflow_status', 'completed')->count(),
+            'avg_response_minutes' => $responses->isEmpty() ? null
+                : (int) round($responses->avg(fn (Booking $booking) => $booking->created_at->diffInMinutes($booking->provider_responded_at))),
+            'commitment_rate' => $answered + $missed === 0 ? null : (int) round($answered / ($answered + $missed) * 100),
         ];
     }
 
@@ -205,8 +234,8 @@ class ProviderServiceManager
         $data['city_id'] = $data['city_id'] ?? $user->city_id;
         $data['category_id'] = $data['category_id'] ?? $user->providerProfile?->category_id;
         $data['currency'] = $data['currency'] ?? 'ILS';
-        $data['status'] = 'active';
         $data['is_available'] = $data['is_available'] ?? true;
+        $data = $this->applyPublishing($this->applyOfferPrice($data));
         $data['image'] = $image?->store('services', 'public');
 
         $service = Service::create($data);
@@ -226,7 +255,7 @@ class ProviderServiceManager
             $data['image'] = $image->store('services', 'public');
         }
 
-        $data['status'] = 'active';
+        $data = $this->applyPublishing($this->applyOfferPrice($data));
         $service->update($data);
         $this->removeServiceImages($service, $data['remove_image_ids'] ?? []);
         $this->syncServiceImages($service, $images);
@@ -252,7 +281,8 @@ class ProviderServiceManager
         }
 
         $service = $user->services()->findOrFail($serviceId);
-        $service->update(['is_available' => $isAvailable]);
+        // Activating a draft publishes it.
+        $service->update($isAvailable ? ['is_available' => true, 'status' => 'active', 'is_draft' => false] : ['is_available' => false]);
 
         return $service->fresh(['category', 'city', 'images', 'items', 'unavailableDates']);
     }
@@ -304,6 +334,45 @@ class ProviderServiceManager
             ->whereIn('service_id', $user->services()->select('id'))->latest()->paginate(20);
     }
 
+    // فرح: "سعر العرض" من شاشة إضافة خدمة: السعر الأصلي يصبح original_price ويُعرض سعر العرض.
+    private function applyOfferPrice(array $data): array
+    {
+        if (! array_key_exists('offer_price', $data)) {
+            return $data;
+        }
+        $offer = $data['offer_price'];
+        unset($data['offer_price']);
+        if ($offer === null || $offer === '') {
+            return $data + ['original_price' => null, 'is_on_offer' => false, 'discount_percentage' => null];
+        }
+
+        $price = (float) $data['price'];
+
+        return array_merge($data, [
+            'original_price' => $price,
+            'price' => (float) $offer,
+            'is_on_offer' => true,
+            'discount_percentage' => $price > 0 ? (int) round((1 - (float) $offer / $price) * 100) : null,
+        ]);
+    }
+
+    // فرح: "حفظ كمسودة" يحفظ الخدمة غير منشورة (is_draft)، و"نشر الآن" ينشرها.
+    private function applyPublishing(array $data): array
+    {
+        $draft = (bool) ($data['save_as_draft'] ?? false);
+        unset($data['save_as_draft']);
+        $data['status'] = $draft ? 'inactive' : 'active';
+        $data['is_draft'] = $draft;
+        if ($draft) {
+            $data['is_available'] = false;
+        }
+        if (array_key_exists('removable_features', $data)) {
+            $data['removable_features'] = array_values(array_intersect($data['removable_features'] ?? [], $data['features'] ?? []));
+        }
+
+        return $data;
+    }
+
     public function serviceData(Service $service): array
     {
         return [
@@ -316,11 +385,16 @@ class ProviderServiceManager
             'images' => $service->images->map(fn (ServiceImage $image) => ['id' => $image->id, 'url' => $this->publicUrl($image->image_path), 'sort_order' => $image->sort_order])->values(),
             'cover_image' => $this->publicUrl($service->image) ?: $this->publicUrl($service->images->first()?->image_path),
             'features' => $service->features ?: [],
+            'feature_items' => collect($service->features ?: [])->map(fn ($name) => [
+                'name' => $name,
+                'removable' => in_array($name, $service->removable_features ?: [], true),
+            ])->values(),
             'package_items' => $service->items->map(fn ($item) => $item->only(['id', 'title', 'description', 'quantity', 'sort_order']))->values(),
             'pricing' => ['price' => (float) $service->price, 'original_price' => $service->original_price ? (float) $service->original_price : null, 'currency' => $service->currency, 'unit' => $service->pricing_unit, 'deposit_amount' => $service->deposit_amount, 'deposit_percentage' => $service->deposit_percentage],
             'execution_duration' => $service->execution_duration,
             'booking_periods' => $service->booking_slots ?: [],
             'is_published' => $service->status === 'active' && (bool) $service->is_available,
+            'is_draft' => (bool) $service->is_draft,
             'status' => $service->status,
             'rating' => ['average' => (float) $service->rating_avg, 'count' => (int) $service->reviews_count],
             'created_at' => $service->created_at?->toIso8601String(),

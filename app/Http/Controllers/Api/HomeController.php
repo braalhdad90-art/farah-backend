@@ -255,9 +255,6 @@ class HomeController extends Controller
                 $lines = preg_split('/[\r\n,،\-•]+/', $service->description, -1, PREG_SPLIT_NO_EMPTY);
                 $features = array_slice(array_map('trim', $lines), 0, 4);
             }
-            if (empty($features)) {
-                $features = ['بوفيه مفتوح', 'دي جي متكامل', 'شاشة عرض', 'إضاءة ليزر'];
-            }
 
             return [
                 'id' => $service->id,
