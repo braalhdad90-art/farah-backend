@@ -9,7 +9,9 @@ class StoreExternalBookingRequest extends BaseApiRequest
         return [
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:50'],
-            'service_name' => ['required', 'string', 'max:255'],
+            // فرح: خدمة المزود التي يُحجز تاريخها؛ عند إرسالها يصبح service_name اختيارياً.
+            'service_id' => ['nullable', 'integer', 'exists:services,id'],
+            'service_name' => ['required_without:service_id', 'nullable', 'string', 'max:255'],
             'booking_date' => ['required', 'date_format:Y-m-d'],
             'booking_time' => ['nullable', 'date_format:H:i'],
             'total_price' => ['required', 'numeric', 'min:0'],

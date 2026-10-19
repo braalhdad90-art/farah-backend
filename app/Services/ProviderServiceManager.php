@@ -113,6 +113,9 @@ class ProviderServiceManager
             $profile->fill(collect($data)->only([
                 'business_name', 'category_id', 'city_id', 'description',
             ])->all());
+            if (filled($data['profit_account'] ?? null)) {
+                $profile->payout_account_number = $data['profit_account'];
+            }
             // After admin panel sprint Phase 1, onboarding requires explicit
             // administrative approval. Mark new onboarding as pending so an
             // admin can review documents and approve or reject.
@@ -142,6 +145,32 @@ class ProviderServiceManager
         });
     }
 
+    // فرح: تعديل "بيانات المتجر" من الإعدادات دون إعادة التوثيق (الفئة ووثائق الهوية لا تتغير هنا).
+    public function updateStoreProfile(User $user, array $data, ?UploadedFile $cover = null): ProviderProfile
+    {
+        $profile = $user->providerProfile;
+        abort_unless($profile, 422, 'أكمل بيانات مزود الخدمة أولاً.');
+
+        return DB::transaction(function () use ($user, $profile, $data, $cover) {
+            $profile->fill(collect($data)->only(['business_name', 'description', 'city_id'])->all());
+            $this->replaceFile($profile, 'cover_image', $cover, 'provider-covers', 'public');
+            $profile->save();
+
+            $user->update(array_filter([
+                'city_id' => $data['city_id'] ?? null,
+                'bio' => $data['description'] ?? null,
+            ], fn ($value) => $value !== null));
+            if (array_key_exists('address', $data)) {
+                Location::updateOrCreate(
+                    ['user_id' => $user->id, 'label' => 'business'],
+                    collect($data)->only(['address', 'city_id'])->all()
+                );
+            }
+
+            return $profile->fresh(['category', 'city']);
+        });
+    }
+
     public function dashboard(User $user): array
     {
         $this->expiration->expireStale();
@@ -164,6 +193,11 @@ class ProviderServiceManager
                 'registration_status' => $user->providerProfile?->registration_status,
                 'payment_instructions_configured' => filled($user->providerProfile?->payment_instructions),
                 'payment_instructions' => $user->providerProfile?->payment_instructions,
+                'payout_account' => [
+                    'bank_name' => $user->providerProfile?->payout_bank_name,
+                    'account_number' => $user->providerProfile?->payout_account_number,
+                    'iban' => $user->providerProfile?->payout_iban,
+                ],
             ],
             'subscription' => $subscription ? [
                 'status' => $subscription->status,

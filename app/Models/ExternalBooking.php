@@ -11,6 +11,7 @@ class ExternalBooking extends Model
 
     protected $fillable = [
         'provider_id',
+        'service_id',
         'customer_name',
         'customer_phone',
         'service_name',
