@@ -104,11 +104,16 @@ class AdminOperationsTest extends TestCase
             'bank_name' => 'Admin bank',
             'bank_account_number' => '42',
             'bank_iban' => 'PS00TEST',
+            'provider_review_sla_hours' => 12,
+            'payment_due_hours' => 6,
+            'working_hours' => 'Sat-Thu 9-5',
         ])->assertRedirect();
+        $this->assertSame(12, \App\Models\AppSetting::hours('provider_review_sla_hours'));
         $this->getJson('/api/settings')
             ->assertOk()
             ->assertJsonPath('data.bank_transfer.bank_name', 'Admin bank')
             ->assertJsonPath('data.bank_transfer.iban', 'PS00TEST')
+            ->assertJsonPath('data.working_hours', 'Sat-Thu 9-5')
             ->assertJsonPath('data.platform_name', 'Farah')
             ->assertJsonPath('data.support_email', 'help@example.test');
 
@@ -144,6 +149,8 @@ class AdminOperationsTest extends TestCase
             'admin.content.services',
             'admin.finance.payments',
             'admin.finance.refunds',
+            'admin.finance.subscriptions',
+            'admin.finance.payouts',
             'admin.audit-log',
             'admin.team',
             'admin.categories',
@@ -358,7 +365,7 @@ class AdminOperationsTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', ['action' => 'subscription_payment_confirmed', 'resource_id' => $payment->id]);
         $this->assertDatabaseHas('app_notifications', ['user_id' => $provider->id, 'type' => 'subscription_activated']);
 
-        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'rejected', 'review_note' => 'Second review attempt'])
+        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'rejected', 'reason' => 'not_received'])
             ->assertStatus(409);
     }
 
@@ -376,15 +383,170 @@ class AdminOperationsTest extends TestCase
         ]);
 
         $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'rejected'])
+            ->assertSessionHasErrors('reason');
+        $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'rejected', 'reason' => 'other'])
             ->assertSessionHasErrors('review_note');
 
         $this->actingAs($admin)->post(route('admin.finance.subscription.review', $payment), [
             'decision' => 'rejected',
-            'review_note' => 'Transfer amount does not match.',
+            'reason' => 'amount_mismatch',
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('subscription_payments', ['id' => $payment->id, 'status' => 'rejected']);
+        $this->assertDatabaseHas('subscription_payments', [
+            'id' => $payment->id,
+            'status' => 'rejected',
+            'review_note' => 'المبلغ المحوّل لا يطابق سعر الباقة',
+        ]);
         $this->assertDatabaseCount('provider_subscriptions', 0);
+    }
+
+    public function test_system_admin_creates_a_team_account_with_one_role(): void
+    {
+        $admin = $this->admin('system.admin');
+
+        $this->actingAs($admin)->post(route('admin.team.create'), [
+            'name' => 'Finance teammate',
+            'email' => 'Finance@Example.test',
+            'role' => 'finance.reviewer',
+            'password' => 'secret12345',
+            'password_confirmation' => 'secret12345',
+        ])->assertRedirect();
+
+        $created = User::where('email', 'finance@example.test')->firstOrFail();
+        $this->assertSame('admin', $created->user_type);
+        $this->assertSame(['finance.reviewer'], $created->getRoleNames()->all());
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'admin_account_created', 'resource_id' => $created->id]);
+
+        // Ops moderators cannot create accounts.
+        $this->actingAs($this->admin('ops.moderator'))->post(route('admin.team.create'), [
+            'name' => 'Nope',
+            'email' => 'nope@example.test',
+            'role' => 'system.admin',
+            'password' => 'secret12345',
+            'password_confirmation' => 'secret12345',
+        ])->assertForbidden();
+    }
+
+    public function test_admin_create_command_only_creates_missing_accounts(): void
+    {
+        $this->artisan('admin:create', [
+            '--if-missing' => true, '--name' => 'Boss', '--email' => 'boss@example.test', '--password' => 'first-pass-1',
+        ])->assertSuccessful();
+        $boss = User::where('email', 'boss@example.test')->firstOrFail();
+        $this->assertTrue($boss->hasRole('system.admin'));
+        $boss->syncRoles(['finance.reviewer']);
+
+        $this->artisan('admin:create', [
+            '--if-missing' => true, '--name' => 'Boss', '--email' => 'boss@example.test', '--password' => 'other-pass-2',
+        ])->assertSuccessful();
+        $this->assertTrue($boss->fresh()->hasRole('finance.reviewer'));
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('first-pass-1', $boss->fresh()->password));
+    }
+
+    public function test_subscription_proof_is_held_by_the_reviewer_who_opened_it(): void
+    {
+        $first = $this->admin('finance.reviewer');
+        $second = $this->admin('finance.reviewer');
+        $provider = User::factory()->create(['user_type' => 'provider', 'status' => 'active']);
+        $payment = SubscriptionPayment::create([
+            'provider_id' => $provider->id,
+            'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->value('id'),
+            'amount' => 100,
+            'currency' => 'ILS',
+            'proof_path' => 'subscription-proofs/test.jpg',
+            'status' => 'submitted',
+        ]);
+
+        $this->actingAs($first)->get(route('admin.finance.subscription.show', $payment))
+            ->assertOk()
+            ->assertSee('name="decision"', false);
+        $this->assertSame($first->id, $payment->fresh()->review_locked_by);
+
+        $this->actingAs($second)->get(route('admin.finance.subscription.show', $payment))
+            ->assertOk()
+            ->assertSee($first->name)
+            ->assertDontSee('name="decision"', false);
+        $this->actingAs($second)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'confirmed'])
+            ->assertStatus(423);
+
+        // The hold expires after 15 minutes.
+        $this->travel(16)->minutes();
+        $this->actingAs($second)->post(route('admin.finance.subscription.review', $payment), ['decision' => 'confirmed'])
+            ->assertRedirect();
+        $this->assertDatabaseHas('subscription_payments', ['id' => $payment->id, 'status' => 'confirmed', 'reviewed_by' => $second->id, 'review_locked_by' => null]);
+    }
+
+    public function test_finance_records_a_payout_and_ops_cannot(): void
+    {
+        $finance = $this->admin('finance.reviewer');
+        $provider = User::factory()->create(['user_type' => 'provider', 'status' => 'active']);
+        ProviderProfile::create(['user_id' => $provider->id, 'business_name' => 'Payout hall', 'status' => 'approved', 'registration_status' => 'approved']);
+        $booking = Booking::factory()->create(['provider_id' => $provider->id, 'reference' => 'BKG-PAYOUT-1']);
+
+        $payload = [
+            'provider_id' => $provider->id,
+            'booking_reference' => $booking->reference,
+            'amount' => 320.5,
+            'currency' => 'ILS',
+            'method' => 'bank_transfer',
+            'reference' => 'TRX-778',
+            'paid_at' => now()->toDateString(),
+        ];
+        $this->actingAs($this->admin('ops.moderator'))->post(route('admin.finance.payouts.create'), $payload)->assertForbidden();
+
+        $this->actingAs($finance)->post(route('admin.finance.payouts.create'), $payload)->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('provider_payouts', ['provider_id' => $provider->id, 'booking_id' => $booking->id, 'reference' => 'TRX-778', 'recorded_by' => $finance->id]);
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'payout_recorded']);
+        $this->assertDatabaseHas('app_notifications', ['user_id' => $provider->id, 'type' => 'payout_recorded']);
+        $this->actingAs($finance)->get(route('admin.finance.payouts'))->assertOk()->assertSee('TRX-778');
+
+        $this->actingAs($finance)->post(route('admin.finance.payouts.create'), ['booking_reference' => 'NOT-HIS'] + $payload)
+            ->assertSessionHasErrors('booking_reference');
+    }
+
+    public function test_completed_bookings_cannot_be_refunded(): void
+    {
+        $finance = $this->admin('finance.reviewer');
+        $booking = Booking::factory()->create(['workflow_status' => 'completed', 'status' => 'completed']);
+
+        $this->actingAs($finance)->post(route('admin.finance.refunds.create', $booking), [
+            'amount' => 10,
+            'reason' => 'Customer asked after the event.',
+        ])->assertStatus(409);
+        $this->assertDatabaseCount('admin_refunds', 0);
+    }
+
+    public function test_finance_exports_subscriptions_and_audit_log_is_searchable(): void
+    {
+        $system = $this->admin('system.admin');
+        $finance = $this->admin('finance.reviewer');
+
+        $this->actingAs($finance)->get(route('admin.finance.export.subscriptions'))->assertOk();
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'report_exported', 'actor_id' => $finance->id]);
+
+        $this->actingAs($system)->get(route('admin.audit-log', ['action' => 'report_exported', 'actor' => $finance->email]))
+            ->assertOk()
+            ->assertSee($finance->name);
+        $this->actingAs($system)->get(route('admin.audit-log', ['action' => 'payout_recorded']))
+            ->assertOk()
+            ->assertDontSee($finance->name);
+    }
+
+    public function test_identity_documents_are_purged_thirty_days_after_the_decision(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Storage::disk('local')->put('provider-documents/old.jpg', 'x');
+        \Illuminate\Support\Facades\Storage::disk('local')->put('provider-documents/new.jpg', 'x');
+        $old = ProviderProfile::create(['user_id' => User::factory()->create()->id, 'business_name' => 'Old', 'status' => 'approved', 'registration_status' => 'approved', 'decided_at' => now()->subDays(31), 'identity_document_path' => 'provider-documents/old.jpg']);
+        $recent = ProviderProfile::create(['user_id' => User::factory()->create()->id, 'business_name' => 'Recent', 'status' => 'approved', 'registration_status' => 'approved', 'decided_at' => now()->subDays(5), 'identity_document_path' => 'provider-documents/new.jpg']);
+
+        $this->artisan('providers:purge-documents')->assertSuccessful();
+
+        $this->assertNull($old->fresh()->identity_document_path);
+        \Illuminate\Support\Facades\Storage::disk('local')->assertMissing('provider-documents/old.jpg');
+        $this->assertSame('provider-documents/new.jpg', $recent->fresh()->identity_document_path);
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists('provider-documents/new.jpg');
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'provider_documents_purged', 'resource_id' => $old->id]);
     }
 
     private function admin(string $role): User

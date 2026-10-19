@@ -44,9 +44,9 @@
     ] as $document)
         <div class="col-md-6">
             <section class="card h-100"><div class="card-body p-4 d-flex align-items-center justify-content-between gap-3">
-                <div><h2 class="h6 fw-bold mb-1">{{ $document['title'] }}</h2><div class="small text-muted">{{ $document['path'] ? 'مرفق محفوظ بوصول خاص' : 'لم يتم إرفاق مستند' }}</div></div>
+                <div><h2 class="h6 fw-bold mb-1">{{ $document['title'] }}</h2><div class="small text-muted">{{ $document['path'] ? 'مرفق محفوظ بوصول خاص، يُحذف بعد 30 يومًا من القرار' : 'لا يوجد مستند (لم يُرفق أو حُذف بعد 30 يومًا من القرار)' }}</div></div>
                 @if($document['path'])
-                    <a href="{{ Illuminate\Support\Facades\URL::temporarySignedRoute('admin.provider.document', now()->addMinutes(5), ['provider' => $provider->id, 'document' => $document['key']]) }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square ms-1"></i>فتح آمن · ٥ دقائق</a>
+                    <a href="{{ Illuminate\Support\Facades\URL::temporarySignedRoute('admin.provider.document', now()->addMinutes(15), ['provider' => $provider->id, 'document' => $document['key']]) }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square ms-1"></i>فتح آمن · ١٥ دقيقة</a>
                 @else
                     <span class="text-muted"><i class="fa-regular fa-file"></i></span>
                 @endif

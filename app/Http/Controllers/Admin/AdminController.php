@@ -10,14 +10,18 @@ use App\Models\BookingPayment;
 use App\Models\Review;
 use App\Models\ProviderProfile;
 use App\Models\ProviderSubscription;
+use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\Category;
 use App\Models\Service;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Str;
 use App\Services\NotificationService;
 use App\Notifications\ProviderRejectedNotification;
@@ -38,13 +42,22 @@ class AdminController extends Controller
             ];
         }
         if (in_array($role, ['finance.reviewer', 'system.admin'], true)) {
-            $stats['payment_proofs_pending'] = BookingPayment::where('status', 'submitted')->count();
+            $stats['subscription_proofs_pending'] = SubscriptionPayment::where('status', 'submitted')->count();
+            $stats['subscriptions_expiring'] = ProviderSubscription::whereIn('status', ['trialing', 'active'])
+                ->whereBetween('current_period_end', [now(), now()->addDays(7)])
+                ->count();
         }
+
+        // فرح: توزيع الحجوزات حسب الحالة (ADM-57).
+        $bookingsByStatus = in_array($role, ['ops.moderator', 'system.admin'], true)
+            ? Booking::query()->selectRaw('workflow_status, count(*) as total')->groupBy('workflow_status')->pluck('total', 'workflow_status')
+            : collect();
 
         return view('admin.dashboard', [
             'providerPending' => $providerPending,
             'role' => $role,
             'stats' => $stats,
+            'bookingsByStatus' => $bookingsByStatus,
         ]);
     }
 
@@ -85,13 +98,13 @@ class AdminController extends Controller
                         ->orWhereHas('user', fn ($users) => $users->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
                 });
             })
-            ->when(($filters['overdue'] ?? false), fn ($query) => $query->where('submitted_at', '<=', now()->subHours(24)))
+            ->when(($filters['overdue'] ?? false), fn ($query) => $query->where('submitted_at', '<=', now()->subHours(AppSetting::hours('provider_review_sla_hours'))))
             ->orderBy('submitted_at')
             ->orderBy('created_at')
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.providers-pending', ['providers' => $providers, 'filters' => $filters]);
+        return view('admin.providers-pending', ['providers' => $providers, 'filters' => $filters, 'slaHours' => AppSetting::hours('provider_review_sla_hours')]);
     }
 
     public function providerDetail(ProviderProfile $provider)
@@ -236,13 +249,30 @@ class AdminController extends Controller
         return back()->with('success', 'تمت إعادة تفعيل مزود الخدمة.');
     }
 
-    public function auditLog()
+    public function auditLog(Request $request)
     {
         $this->authorizeAdminAction('view-audit-log');
 
-        $logs = AdminAuditLog::with(['actor', 'targetUser'])->latest('created_at')->paginate(20);
+        $filters = $request->validate([
+            'actor' => ['nullable', 'string', 'max:120'],
+            'action' => ['nullable', 'string', 'max:80'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
 
-        return view('admin.audit-log', ['logs' => $logs]);
+        $logs = AdminAuditLog::with(['actor', 'targetUser'])
+            ->when($filters['actor'] ?? null, fn ($query, string $actor) => $query->whereHas(
+                'actor',
+                fn ($users) => $users->where('name', 'like', "%{$actor}%")->orWhere('email', 'like', "%{$actor}%")
+            ))
+            ->when($filters['action'] ?? null, fn ($query, string $action) => $query->where('action', $action))
+            ->when($filters['from'] ?? null, fn ($query, string $from) => $query->where('created_at', '>=', Carbon::parse($from)->startOfDay()))
+            ->when($filters['to'] ?? null, fn ($query, string $to) => $query->where('created_at', '<=', Carbon::parse($to)->endOfDay()))
+            ->latest('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.audit-log', ['logs' => $logs, 'filters' => $filters]);
     }
 
     public function reviews(Request $request)
@@ -359,6 +389,35 @@ class AdminController extends Controller
             ->paginate(20);
 
         return view('admin.team', ['admins' => $admins]);
+    }
+
+    // فرح: إنشاء حساب لعضو في فريق الإدارة بدور واحد فقط (ADM-44).
+    public function createAdmin(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', 'in:ops.moderator,finance.reviewer,system.admin'],
+            'password' => ['required', 'confirmed', Password::min(10)->letters()->numbers()],
+        ]);
+
+        DB::transaction(function () use ($request, $data): void {
+            $admin = User::create([
+                'name' => trim($data['name']),
+                'email' => strtolower(trim($data['email'])),
+                'password' => Hash::make($data['password']),
+                'user_type' => 'admin',
+                'status' => 'active',
+                'email_verified_at' => now(),
+            ]);
+            $admin->assignRole($data['role']);
+            $this->writeRecordAudit('admin_account_created', 'user', $admin->id, $admin->id, null, [
+                'email' => $admin->email,
+                'roles' => [$data['role']],
+            ], $request);
+        });
+
+        return back()->with('success', 'تم إنشاء حساب الإدارة.');
     }
 
     public function updateAdminRole(Request $request, User $user)
@@ -484,6 +543,9 @@ class AdminController extends Controller
             'bank_name' => ['nullable', 'string', 'max:120'],
             'bank_account_number' => ['nullable', 'string', 'max:60'],
             'bank_iban' => ['nullable', 'string', 'max:60'],
+            'provider_review_sla_hours' => ['required', 'integer', 'min:1', 'max:168'],
+            'payment_due_hours' => ['required', 'integer', 'min:1', 'max:168'],
+            'working_hours' => ['nullable', 'string', 'max:255'],
         ]);
 
         DB::transaction(function () use ($request, $data): void {
@@ -650,6 +712,34 @@ class AdminController extends Controller
             'rating_avg' => $service->reviews()->avg('rating') ?? 0,
             'reviews_count' => $service->reviews()->count(),
         ]);
+    }
+
+    // فرح: تقرير الاشتراكات (ADM-55).
+    public function exportSubscriptionsCsv()
+    {
+        $this->writeExportAudit('subscriptions');
+
+        return response()->streamDownload(function (): void {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['provider', 'email', 'plan', 'status', 'period_start', 'period_end', 'trial_ends_at', 'created_at']);
+            ProviderSubscription::with(['provider:id,name,email', 'plan:id,name'])
+                ->orderBy('id')
+                ->chunk(500, function ($rows) use ($output): void {
+                    foreach ($rows as $row) {
+                        fputcsv($output, array_map([$this, 'csvSafeValue'], [
+                            $row->provider?->name,
+                            $row->provider?->email,
+                            $row->plan?->name,
+                            $row->status,
+                            $row->current_period_start?->toDateTimeString(),
+                            $row->current_period_end?->toDateTimeString(),
+                            $row->trial_ends_at?->toDateTimeString(),
+                            $row->created_at?->toDateTimeString(),
+                        ]));
+                    }
+                });
+            fclose($output);
+        }, 'farah-subscriptions-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function csvSafeValue(mixed $value): string

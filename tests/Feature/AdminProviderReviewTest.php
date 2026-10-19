@@ -178,7 +178,7 @@ class AdminProviderReviewTest extends TestCase
         $this->assertDatabaseCount('app_notifications', 1);
     }
 
-    public function test_finance_reviewer_can_approve_a_submitted_payment_proof(): void
+    public function test_booking_payment_proofs_are_read_only_for_admins(): void
     {
         $admin = $this->adminWithRole('finance.reviewer');
         $customer = User::factory()->create(['user_type' => 'customer']);
@@ -202,27 +202,15 @@ class AdminProviderReviewTest extends TestCase
             'status' => 'submitted',
         ]);
 
-        $this->actingAs($admin)->post(route('admin.finance.payment.review', $payment), [
-            'decision' => 'confirmed',
-        ])->assertRedirect(route('admin.finance.payments'));
-
-        $this->assertDatabaseHas('booking_payments', [
-            'id' => $payment->id,
-            'status' => 'confirmed',
-            'reviewed_by' => $admin->id,
-        ]);
-        $this->assertDatabaseHas('bookings', [
-            'id' => $booking->id,
-            'workflow_status' => 'confirmed',
-        ]);
-        $this->assertDatabaseHas('admin_audit_logs', [
-            'action' => 'payment_proof_confirmed',
-            'resource_id' => $payment->id,
-        ]);
-        $this->assertDatabaseHas('app_notifications', [
-            'user_id' => $customer->id,
-            'type' => 'payment_confirmed',
-        ]);
+        // Only the provider approves booking payments; the admin page lists them.
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('admin.finance.payment.review'));
+        $this->actingAs($admin)->get(route('admin.finance.payments'))
+            ->assertOk()
+            ->assertSee('PAY-ADMIN-TEST')
+            ->assertDontSee('name="decision"', false);
+        $this->actingAs($admin)->post('/admin/finance/payments/'.$payment->id.'/review', ['decision' => 'confirmed'])
+            ->assertNotFound();
+        $this->assertDatabaseHas('bookings', ['id' => $booking->id, 'workflow_status' => 'review_under_proof']);
     }
 
     private function adminWithRole(string $role): User

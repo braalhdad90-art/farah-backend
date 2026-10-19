@@ -11,7 +11,7 @@
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>المزود</th><th>النشاط</th><th>الباقة</th><th>المبلغ</th><th>تاريخ الإرسال</th><th>الإشعار</th><th>القرار</th></tr></thead>
+            <thead><tr><th>المزود</th><th>النشاط</th><th>الباقة</th><th>المبلغ</th><th>تاريخ الإرسال</th><th></th></tr></thead>
             <tbody>
             @forelse($payments as $payment)
                 <tr>
@@ -20,20 +20,15 @@
                     <td>{{ $payment->plan?->name ?? '—' }}</td>
                     <td class="fw-bold">{{ number_format($payment->amount, 2) }} {{ $payment->currency }}</td>
                     <td>{{ $payment->created_at?->format('Y-m-d H:i') }}</td>
-                    <td><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="{{ Illuminate\Support\Facades\URL::temporarySignedRoute('admin.finance.subscription.proof', now()->addMinutes(5), ['payment' => $payment->id]) }}"><i class="fa-regular fa-image ms-1"></i>عرض الإشعار · ٥ دقائق</a></td>
                     <td>
-                        <form method="POST" action="{{ route('admin.finance.subscription.review', $payment) }}" class="d-flex flex-column gap-2">
-                            @csrf
-                            <textarea name="review_note" class="form-control form-control-sm" rows="2" placeholder="ملاحظة الرفض (مطلوبة عند الرفض)"></textarea>
-                            <div class="d-flex gap-2">
-                                <button name="decision" value="confirmed" class="btn btn-sm btn-success"><i class="fa-solid fa-check ms-1"></i>اعتماد وتفعيل</button>
-                                <button name="decision" value="rejected" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-xmark ms-1"></i>رفض</button>
-                            </div>
-                        </form>
+                        @if($payment->isLockedForOthers(auth()->id()))
+                            <span class="badge text-bg-warning mb-1 d-inline-block"><i class="fa-solid fa-lock ms-1"></i>يراجعه {{ $payment->reviewer?->name }}</span>
+                        @endif
+                        <a class="btn btn-sm btn-primary" href="{{ route('admin.finance.subscription.show', $payment) }}"><i class="fa-solid fa-magnifying-glass ms-1"></i>مراجعة</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="p-5 text-center text-muted"><i class="fa-solid fa-circle-check fs-4 d-block mb-2"></i>لا توجد إشعارات تحويل بانتظار المراجعة.</td></tr>
+                <tr><td colspan="6" class="p-5 text-center text-muted"><i class="fa-solid fa-circle-check fs-4 d-block mb-2"></i>لا توجد إشعارات تحويل بانتظار المراجعة.</td></tr>
             @endforelse
             </tbody>
         </table>

@@ -27,10 +27,11 @@
                     <td>{{ $provider->user?->name }}</td>
                     <td>{{ $provider->submitted_at?->format('Y/m/d H:i') ?? $provider->created_at?->format('Y/m/d H:i') }}</td>
                     <td>
-                        @if($provider->submitted_at && $provider->submitted_at->lte(now()->subHours(24)))
-                            <span class="badge text-bg-danger"><i class="fa-solid fa-triangle-exclamation ms-1"></i>متأخرة</span>
-                        @else
-                            <span class="badge text-bg-success">ضمن المهلة</span>
+                        @php($deadline = ($provider->submitted_at ?? $provider->created_at)?->copy()->addHours($slaHours))
+                        @if($deadline && $deadline->isPast())
+                            <span class="badge text-bg-danger"><i class="fa-solid fa-triangle-exclamation ms-1"></i>متأخرة {{ $deadline->diffForHumans(null, true) }}</span>
+                        @elseif($deadline)
+                            <span class="badge text-bg-success"><i class="fa-regular fa-clock ms-1"></i>متبقي {{ $deadline->diffForHumans(null, true) }}</span>
                         @endif
                     </td>
                     <td><a href="{{ route('admin.provider.detail', $provider) }}" class="btn btn-sm btn-primary"><i class="fa-solid fa-magnifying-glass ms-1"></i>مراجعة الطلب</a></td>

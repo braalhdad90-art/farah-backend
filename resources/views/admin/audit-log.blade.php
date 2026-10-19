@@ -29,6 +29,11 @@
         'refund_reject' => 'رفض استرداد',
         'refund_mark_processed' => 'تسجيل تحويل الاسترداد',
         'provider_review_escalated' => 'تصعيد طلب اعتماد متأخر',
+        'admin_account_created' => 'إنشاء حساب إداري',
+        'subscription_payment_confirmed' => 'اعتماد إشعار اشتراك',
+        'subscription_payment_rejected' => 'رفض إشعار اشتراك',
+        'payout_recorded' => 'تسجيل تحويل لمزود',
+        'provider_documents_purged' => 'حذف وثائق هوية مزود',
     ];
     $roleLabels = [
         'ops.moderator' => 'مشرف العمليات',
@@ -46,6 +51,9 @@
         'booking_payment' => 'دفعة حجز',
         'admin_refund' => 'استرداد',
         'csv_report' => 'تقرير',
+        'subscription_payment' => 'إشعار اشتراك',
+        'provider_payout' => 'تحويل لمزود',
+        'provider_profile' => 'ملف مزود',
     ];
 @endphp
 
@@ -54,6 +62,23 @@
     <div><h1>سجل التدقيق</h1><p>سجل غير قابل للتعديل لقرارات الإدارة والتغييرات التي تمت على المنصة.</p></div>
     <span class="badge text-bg-light border text-secondary"><i class="fa-solid fa-lock ms-1"></i>سجل محمي</span>
 </section>
+
+{{-- فرح: البحث في السجل حسب المنفذ والإجراء والتاريخ (ADM-49). --}}
+<form method="GET" class="card mb-3">
+    <div class="card-body d-flex flex-wrap gap-2 align-items-end">
+        <div><label class="form-label small fw-bold">المنفذ (اسم أو بريد)</label><input name="actor" class="form-control" value="{{ $filters['actor'] ?? '' }}" maxlength="120"></div>
+        <div><label class="form-label small fw-bold">الإجراء</label><select name="action" class="form-select">
+            <option value="">الكل</option>
+            @foreach($actionLabels as $value => $label)
+                <option value="{{ $value }}" @selected(($filters['action'] ?? null) === $value)>{{ $label }}</option>
+            @endforeach
+        </select></div>
+        <div><label class="form-label small fw-bold">من تاريخ</label><input type="date" name="from" class="form-control" value="{{ $filters['from'] ?? '' }}"></div>
+        <div><label class="form-label small fw-bold">إلى تاريخ</label><input type="date" name="to" class="form-control" value="{{ $filters['to'] ?? '' }}"></div>
+        <button class="btn btn-primary">بحث</button>
+        <a href="{{ route('admin.audit-log') }}" class="btn btn-outline-secondary">مسح</a>
+    </div>
+</form>
 
 <div class="card">
     <div class="table-responsive">
