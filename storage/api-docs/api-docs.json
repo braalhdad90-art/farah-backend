@@ -359,6 +359,10 @@
                                         "type": "integer",
                                         "example": 1
                                     },
+                                    "region": {
+                                        "type": "string",
+                                        "example": "غزة - الرمال"
+                                    },
                                     "avatar": {
                                         "type": "string",
                                         "format": "binary"
@@ -1504,6 +1508,34 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/faqs": {
+            "get": {
+                "tags": [
+                    "Settings"
+                ],
+                "summary": "الأسئلة الشائعة لمركز المساعدة",
+                "operationId": "1cf6a38b9bfb7aa285a9c5c6657be48c",
+                "parameters": [
+                    {
+                        "name": "audience",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "customer",
+                                "provider"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "قائمة الأسئلة"
+                    }
+                }
             }
         },
         "/api/favorites": {
@@ -3385,7 +3417,18 @@
                                     "address": {
                                         "type": "string"
                                     },
+                                    "category_id": {
+                                        "type": "integer"
+                                    },
+                                    "commercial_register_number": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
                                     "cover_image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "logo": {
                                         "type": "string",
                                         "format": "binary"
                                     }
@@ -4344,6 +4387,10 @@
         {
             "name": "Users",
             "description": "بيانات المستخدم الحالي"
+        },
+        {
+            "name": "Settings",
+            "description": "Settings"
         }
     ]
 }

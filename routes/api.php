@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\NotificationSettingController;
 use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\ProviderSubscriptionController;
 use App\Http\Controllers\Api\PublicSettingsController;
+use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:public')->group(function () {
     Route::get('/settings', PublicSettingsController::class);
+    // فرح: الأسئلة الشائعة لمركز المساعدة (يديرها الأدمن من لوحة التحكم).
+    Route::get('/faqs', [FaqController::class, 'index']);
     Route::get('/cities', [CityController::class, 'index']);
     Route::get('/home', [HomeController::class, 'index']);
     Route::get('/categories', [CategoryController::class, 'index']);

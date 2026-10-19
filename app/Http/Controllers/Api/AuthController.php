@@ -15,6 +15,7 @@ use App\Http\Requests\Api\ResetPasswordRequest;
 use App\Http\Requests\Api\UpdateEmailRequest;
 use App\Http\Requests\Api\UpdateProfileRequest;
 use App\Models\Booking;
+use App\Models\Location;
 use App\Models\User;
 use App\Notifications\VerifyEmailChange;
 use Google\Client as GoogleClient;
@@ -213,6 +214,7 @@ class AuthController extends Controller
                         new OA\Property(property: "name", type: "string", example: "محمد ياسر"),
                         new OA\Property(property: "phone", type: "string", example: "0599000000"),
                         new OA\Property(property: "city_id", type: "integer", example: 1),
+                        new OA\Property(property: "region", type: "string", example: "غزة - الرمال"),
                         new OA\Property(property: "avatar", type: "string", format: "binary")
                     ]
                 )
@@ -234,6 +236,14 @@ class AuthController extends Controller
             }
             $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
         }
+        // فرح: العنوان الشخصي يُحفظ في موقع خاص بالحساب (label=personal)، منفصل عن عنوان المتجر (business).
+        if ($request->has('region')) {
+            Location::updateOrCreate(
+                ['user_id' => $user->id, 'label' => 'personal'],
+                ['address' => $data['region'] ?? null]
+            );
+        }
+        unset($data['region']);
         $user->update($data);
         $user->load(['city', 'locations.city']);
 
@@ -400,6 +410,8 @@ class AuthController extends Controller
             'city' => $user->city ? ['id' => $user->city->id, 'name' => $user->city->name] : null,
         ];
         if ($includePrimaryLocation) {
+            // فرح: "العنوان" الظاهر في تعديل الملف الشخصي.
+            $data['region'] = $user->locations->firstWhere('label', 'personal')?->address;
             $primary = $user->locations->firstWhere('is_primary', true) ?? $user->locations->first();
             $data['primary_location'] = $primary ? [
                 'id' => $primary->id,

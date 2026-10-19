@@ -23,6 +23,7 @@ class ProviderProfile extends Model
         'cover_image',
         'identity_document_path',
         'commercial_register_path',
+        'commercial_register_number',
         'payment_instructions',
         'payout_bank_name',
         'payout_account_number',

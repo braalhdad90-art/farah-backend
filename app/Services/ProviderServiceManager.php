@@ -98,6 +98,9 @@ class ProviderServiceManager
                 ] : null,
                 'address' => $user->locations->first()?->address,
                 'cover_image' => $this->publicUrl($profile->cover_image),
+                // فرح: لشاشة "بيانات المتجر": الشعار ورقم السجل التجاري.
+                'logo' => $this->publicUrl($user->avatar),
+                'commercial_register_number' => $profile->commercial_register_number,
                 'identity_document' => null,
                 'commercial_register' => null,
                 'registration_status' => $profile->registration_status,
@@ -146,15 +149,22 @@ class ProviderServiceManager
     }
 
     // فرح: تعديل "بيانات المتجر" من الإعدادات دون إعادة التوثيق (الفئة ووثائق الهوية لا تتغير هنا).
-    public function updateStoreProfile(User $user, array $data, ?UploadedFile $cover = null): ProviderProfile
+    public function updateStoreProfile(User $user, array $data, ?UploadedFile $cover = null, ?UploadedFile $logo = null): ProviderProfile
     {
         $profile = $user->providerProfile;
         abort_unless($profile, 422, 'أكمل بيانات مزود الخدمة أولاً.');
 
-        return DB::transaction(function () use ($user, $profile, $data, $cover) {
-            $profile->fill(collect($data)->only(['business_name', 'description', 'city_id'])->all());
+        return DB::transaction(function () use ($user, $profile, $data, $cover, $logo) {
+            $profile->fill(collect($data)->only(['business_name', 'description', 'city_id', 'category_id', 'commercial_register_number'])->all());
             $this->replaceFile($profile, 'cover_image', $cover, 'provider-covers', 'public');
             $profile->save();
+
+            // فرح: شعار المتجر هو صورة حساب المزود (avatar)، نفس الصورة في "تعديل الملف الشخصي".
+            if ($logo) {
+                $this->deleteFile($user->avatar);
+                $user->avatar = $logo->store('avatars', 'public');
+                $user->save();
+            }
 
             $user->update(array_filter([
                 'city_id' => $data['city_id'] ?? null,

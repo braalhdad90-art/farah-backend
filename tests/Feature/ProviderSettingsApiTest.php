@@ -9,6 +9,8 @@ use App\Models\ProviderProfile;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -53,6 +55,73 @@ class ProviderSettingsApiTest extends TestCase
         $this->assertSame('approved', $profile->status);
         $this->assertSame('approved', $profile->registration_status);
         $this->assertSame('New description', $profile->description);
+    }
+
+    // فرح: شاشة "بيانات المتجر": الفئة ورقم السجل التجاري والشعار.
+    public function test_store_profile_saves_category_register_number_and_logo(): void
+    {
+        Storage::fake('public');
+        $provider = $this->provider();
+        $city = City::create(['name' => 'Store city']);
+        $category = Category::factory()->create(['name' => 'Flowers']);
+
+        $this->actingAs($provider, 'sanctum')->post('/api/provider/profile', [
+            'business_name' => 'Lavender',
+            'description' => 'Flowers and gifts',
+            'city_id' => $city->id,
+            'address' => 'Gaza',
+            'category_id' => $category->id,
+            'commercial_register_number' => '562-889-114',
+            'logo' => UploadedFile::fake()->image('logo.png'),
+        ], ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonPath('data.profile.category.name', 'Flowers')
+            ->assertJsonPath('data.profile.commercial_register_number', '562-889-114');
+
+        $this->assertNotNull($provider->fresh()->avatar);
+        Storage::disk('public')->assertExists($provider->fresh()->avatar);
+        $this->actingAs($provider, 'sanctum')->getJson('/api/provider/onboarding')
+            ->assertJsonPath('data.profile.commercial_register_number', '562-889-114');
+
+        $inactive = Category::factory()->create(['status' => 'inactive']);
+        $this->actingAs($provider, 'sanctum')->postJson('/api/provider/profile', [
+            'business_name' => 'Lavender',
+            'description' => 'Flowers and gifts',
+            'city_id' => $city->id,
+            'address' => 'Gaza',
+            'category_id' => $inactive->id,
+        ])->assertStatus(422)->assertJsonValidationErrors(['category_id']);
+    }
+
+    // فرح: العنوان في "تعديل الملف الشخصي" يُحفظ ويرجع، ولا يغيّر عنوان المتجر.
+    public function test_profile_update_saves_the_personal_address(): void
+    {
+        $provider = $this->provider();
+
+        $this->actingAs($provider, 'sanctum')->postJson('/api/profile/update', [
+            'name' => 'Lavender owner',
+            'region' => 'Gaza - Al Wehda',
+        ])->assertOk()
+            ->assertJsonPath('data.region', 'Gaza - Al Wehda');
+
+        $this->actingAs($provider, 'sanctum')->getJson('/api/profile')
+            ->assertJsonPath('data.region', 'Gaza - Al Wehda')
+            ->assertJsonPath('data.name', 'Lavender owner');
+        $this->assertDatabaseMissing('locations', ['user_id' => $provider->id, 'label' => 'business']);
+    }
+
+    // فرح: مركز المساعدة يعرض أسئلة المزود الظاهرة فقط، والأدمن يضيفها من اللوحة.
+    public function test_faqs_are_filtered_by_audience(): void
+    {
+        \App\Models\Faq::query()->delete();
+        \App\Models\Faq::create(['audience' => 'provider', 'question' => 'P?', 'answer' => 'p', 'sort_order' => 2]);
+        \App\Models\Faq::create(['audience' => 'all', 'question' => 'A?', 'answer' => 'a', 'sort_order' => 1]);
+        \App\Models\Faq::create(['audience' => 'customer', 'question' => 'C?', 'answer' => 'c']);
+        \App\Models\Faq::create(['audience' => 'provider', 'question' => 'Hidden?', 'answer' => 'h', 'is_active' => false]);
+
+        $this->getJson('/api/faqs?audience=provider')->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.question', 'A?')
+            ->assertJsonPath('data.1.question', 'P?');
     }
 
     public function test_external_booking_blocks_the_service_date(): void

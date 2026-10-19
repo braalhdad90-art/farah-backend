@@ -45,6 +45,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', 'admin.idle', 'a
         Route::put('/categories/{category}', [AdminController::class, 'updateCategory'])->name('categories.update');
         Route::get('/plans', [AdminController::class, 'subscriptionPlans'])->name('plans');
         Route::put('/plans/{plan}', [AdminController::class, 'updateSubscriptionPlan'])->name('plans.update');
+        // فرح: إدارة الأسئلة الشائعة لمركز المساعدة في التطبيق.
+        Route::get('/faqs', [AdminController::class, 'faqs'])->name('faqs');
+        Route::post('/faqs', [AdminController::class, 'createFaq'])->name('faqs.create');
+        Route::put('/faqs/{faq}', [AdminController::class, 'updateFaq'])->name('faqs.update');
+        Route::delete('/faqs/{faq}', [AdminController::class, 'deleteFaq'])->name('faqs.delete');
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::put('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
         Route::get('/audit-log', [AdminController::class, 'auditLog'])->name('audit-log');

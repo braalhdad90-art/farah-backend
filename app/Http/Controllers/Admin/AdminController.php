@@ -13,6 +13,7 @@ use App\Models\ProviderSubscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\Category;
+use App\Models\Faq;
 use App\Models\Service;
 use App\Models\User;
 use Carbon\Carbon;
@@ -488,6 +489,52 @@ class AdminController extends Controller
         });
 
         return back()->with('success', 'تم تحديث التصنيف.');
+    }
+
+    // فرح: الأسئلة الشائعة التي تظهر في "مركز المساعدة" بالتطبيق (للعميل أو المزود أو للجميع).
+    public function faqs()
+    {
+        return view('admin.faqs', ['faqs' => Faq::orderBy('audience')->orderBy('sort_order')->orderBy('id')->get()]);
+    }
+
+    public function createFaq(Request $request)
+    {
+        $faq = Faq::create($this->validateFaq($request));
+        $this->writeRecordAudit('faq_created', 'faq', $faq->id, null, null, $faq->only(['audience', 'question']), $request);
+
+        return back()->with('success', 'تمت إضافة السؤال.');
+    }
+
+    public function updateFaq(Request $request, Faq $faq)
+    {
+        $before = $faq->only(['audience', 'question', 'answer', 'sort_order', 'is_active']);
+        $faq->update($this->validateFaq($request));
+        $this->writeRecordAudit('faq_updated', 'faq', $faq->id, null, $before, $faq->only(['audience', 'question', 'answer', 'sort_order', 'is_active']), $request);
+
+        return back()->with('success', 'تم تحديث السؤال.');
+    }
+
+    public function deleteFaq(Request $request, Faq $faq)
+    {
+        $before = $faq->only(['audience', 'question']);
+        $faq->delete();
+        $this->writeRecordAudit('faq_deleted', 'faq', $faq->id, null, $before, null, $request);
+
+        return back()->with('success', 'تم حذف السؤال.');
+    }
+
+    private function validateFaq(Request $request): array
+    {
+        $data = $request->validate([
+            'audience' => ['required', 'in:'.implode(',', Faq::AUDIENCES)],
+            'question' => ['required', 'string', 'max:255'],
+            'answer' => ['required', 'string', 'max:5000'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:1000'],
+        ]);
+        $data['sort_order'] = $data['sort_order'] ?? 0;
+        $data['is_active'] = $request->boolean('is_active');
+
+        return $data;
     }
 
     public function subscriptionPlans()

@@ -31,6 +31,7 @@
         $navItems[] = ['label' => 'فريق الإدارة', 'icon' => 'fa-user-gear', 'route' => route('admin.team'), 'active' => request()->routeIs('admin.team*')];
         $navItems[] = ['label' => 'التصنيفات', 'icon' => 'fa-layer-group', 'route' => route('admin.categories'), 'active' => request()->routeIs('admin.categories*')];
         $navItems[] = ['label' => 'باقات الاشتراك', 'icon' => 'fa-tags', 'route' => route('admin.plans'), 'active' => request()->routeIs('admin.plans*')];
+        $navItems[] = ['label' => 'الأسئلة الشائعة', 'icon' => 'fa-circle-question', 'route' => route('admin.faqs'), 'active' => request()->routeIs('admin.faqs*')];
         $navItems[] = ['label' => 'إعدادات المنصة', 'icon' => 'fa-sliders', 'route' => route('admin.settings'), 'active' => request()->routeIs('admin.settings*')];
     }
 @endphp
