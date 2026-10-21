@@ -405,7 +405,10 @@ class AuthController extends Controller
             'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             'phone' => $user->phone,
             'role' => $user->user_type ?? 'customer',
-            'avatar' => $user->avatar ? Storage::url($user->avatar) : null,
+            // فرح: رابط كامل لصورة الحساب من قرص public (كان يرجع "/storage/..." بدون الدومين).
+            'avatar' => $user->avatar
+                ? (preg_match('#^https?://#i', $user->avatar) ? $user->avatar : Storage::disk('public')->url($user->avatar))
+                : null,
             'city_id' => $user->city_id,
             'city' => $user->city ? ['id' => $user->city->id, 'name' => $user->city->name] : null,
         ];
