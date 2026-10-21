@@ -92,6 +92,37 @@ class ProviderSettingsApiTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['category_id']);
     }
 
+    // فرح: روابط الصور لازم تكون كاملة (مع الدومين) حتى يقدر التطبيق يعرضها.
+    public function test_uploaded_images_return_full_urls(): void
+    {
+        // Keep the real public URL; the old code ignored it and used the default "local" disk.
+        Storage::fake('public', ['url' => config('filesystems.disks.public.url')]);
+        config(['filesystems.default' => 'local']);
+        $provider = $this->provider();
+        $city = City::create(['name' => 'Url city']);
+
+        $profile = $this->actingAs($provider, 'sanctum')->post('/api/provider/profile', [
+            'business_name' => 'Store',
+            'description' => 'Desc',
+            'city_id' => $city->id,
+            'address' => 'Gaza',
+            'cover_image' => UploadedFile::fake()->image('cover.jpg'),
+            'logo' => UploadedFile::fake()->image('logo.jpg'),
+        ], ['Accept' => 'application/json'])->assertOk()->json('data.profile');
+
+        $this->assertMatchesRegularExpression('#^https?://.+/provider-covers/#', $profile['cover_image']);
+        $this->assertMatchesRegularExpression('#^https?://.+/avatars/#', $profile['logo']);
+
+        $avatar = $this->actingAs($provider, 'sanctum')->post('/api/profile/update', [
+            'avatar' => UploadedFile::fake()->image('me.jpg'),
+        ], ['Accept' => 'application/json'])->assertOk()->json('data.avatar');
+        $this->assertMatchesRegularExpression('#^https?://.+/avatars/#', $avatar);
+
+        $dashboard = $this->actingAs($provider, 'sanctum')->getJson('/api/provider/dashboard')->json('data.provider');
+        $this->assertMatchesRegularExpression('#^https?://#', $dashboard['avatar']);
+        $this->assertMatchesRegularExpression('#^https?://#', $dashboard['cover_image']);
+    }
+
     // فرح: العنوان في "تعديل الملف الشخصي" يُحفظ ويرجع، ولا يغيّر عنوان المتجر.
     public function test_profile_update_saves_the_personal_address(): void
     {

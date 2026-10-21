@@ -473,7 +473,13 @@ class ProviderServiceManager
 
     private function publicUrl(?string $path): ?string
     {
-        return $path ? Storage::url($path) : null;
+        // فرح: رابط كامل من قرص public (Storage::url كان يستخدم القرص الافتراضي local
+        // ويرجع "/storage/..." بدون الدومين، فما كانت الصور تظهر بالتطبيق).
+        if (! $path) {
+            return null;
+        }
+
+        return preg_match('#^https?://#i', $path) ? $path : Storage::disk('public')->url($path);
     }
 
     private function ensureProviderApproved(User $user): void
