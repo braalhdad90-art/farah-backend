@@ -17,6 +17,7 @@ use App\Http\Requests\Api\UpdateProfileRequest;
 use App\Models\Booking;
 use App\Models\Location;
 use App\Models\User;
+use App\Services\PasswordResetCodeService;
 use App\Notifications\VerifyEmailChange;
 use Google\Client as GoogleClient;
 use Illuminate\Auth\Events\PasswordReset;
@@ -27,10 +28,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\Str;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: "Auth", description: "إدارة الحسابات والمصادقة والملف الشخصي")]
@@ -352,39 +352,61 @@ class AuthController extends Controller
     }
 
     #[OA\Post(path: "/api/forgot-password", summary: "طلب إعادة ضبط كلمة المرور", tags: ["Auth"], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ["email"], properties: [new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com")])), responses: [new OA\Response(response: 200, description: "تم إرسال رابط إعادة الضبط"), new OA\Response(response: 400, description: "تعذر إرسال رابط إعادة الضبط"), new OA\Response(response: 422, description: "البريد غير مسجل"), new OA\Response(response: 503, description: "خدمة البريد غير متاحة")])]
-    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    public function forgotPassword(ForgotPasswordRequest $request, PasswordResetCodeService $codes): JsonResponse
     {
-        try {
-            $status = Password::sendResetLink($request->only('email'));
-        } catch (\Throwable $exception) {
-            Log::error('فشل طلب استعادة كلمة المرور: '.$exception->getMessage());
-            return $this->failure('تعذر إرسال رابط إعادة ضبط كلمة المرور حاليًا. حاول لاحقًا.', 503);
+        // فرح: نرسل رمز من 4 أرقام بالإيميل بدل رابط (التطبيق ما بيفتح روابط).
+        $user = User::where('email', $request->string('email')->lower()->toString())->first();
+        if (! $user || $user->status !== 'active') {
+            return $this->failure('تعذر إرسال رمز إعادة تعيين كلمة المرور لهذا الحساب.', 400);
         }
-        if ($status !== Password::RESET_LINK_SENT) {
-            return $this->failure('تعذر إرسال رابط إعادة ضبط كلمة المرور.', 400);
+        try {
+            $codes->send($user);
+        } catch (\Throwable $exception) {
+            Log::error('فشل إرسال رمز استعادة كلمة المرور: '.$exception->getMessage());
+            return $this->failure('تعذر إرسال الرمز إلى بريدك حاليًا. حاول لاحقًا.', 503);
         }
 
-        return $this->success('تم إرسال رابط إعادة ضبط كلمة المرور إلى بريدك الإلكتروني.');
+        return $this->success('أرسلنا رمز التحقق إلى بريدك الإلكتروني. ينتهي خلال '.PasswordResetCodeService::MINUTES.' دقيقة.');
     }
 
-    #[OA\Post(path: "/api/reset-password", summary: "إعادة ضبط كلمة المرور باستخدام التوكن", tags: ["Auth"], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ["token", "email", "password", "password_confirmation"], properties: [new OA\Property(property: "token", type: "string", example: "sampletoken123"), new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com"), new OA\Property(property: "password", type: "string", format: "password", example: "newpassword123"), new OA\Property(property: "password_confirmation", type: "string", format: "password", example: "newpassword123")])), responses: [new OA\Response(response: 200, description: "تم إعادة ضبط كلمة المرور بنجاح"), new OA\Response(response: 422, description: "التوكن غير صالح أو منتهي")])]
-    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    // فرح: شاشة "رمز التحقق" تتأكد من الرمز قبل الانتقال لشاشة كلمة المرور الجديدة.
+    #[OA\Post(path: "/api/verify-reset-code", summary: "التحقق من رمز إعادة تعيين كلمة المرور", tags: ["Auth"], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ["email", "token"], properties: [new OA\Property(property: "email", type: "string", format: "email"), new OA\Property(property: "token", type: "string", example: "1234")])), responses: [new OA\Response(response: 200, description: "الرمز صحيح"), new OA\Response(response: 422, description: "الرمز غير صحيح أو منتهي")])]
+    public function verifyResetCode(Request $request, PasswordResetCodeService $codes): JsonResponse
     {
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password): void {
-                $user->forceFill(['password' => Hash::make($password), 'remember_token' => Str::random(60)])->save();
-                $user->tokens()->delete();
-                event(new PasswordReset($user));
-            }
-        );
-        if ($status !== Password::PASSWORD_RESET) {
-            return $this->failure('رابط إعادة ضبط كلمة المرور غير صالح أو منتهي.', 422, [
-                'token' => ['رابط إعادة ضبط كلمة المرور غير صالح أو منتهي.'],
-            ]);
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'token' => ['required', 'string', 'max:10'],
+        ], ['token.required' => 'أدخل رمز التحقق.']);
+
+        if (! $codes->check(strtolower($data['email']), $data['token'])) {
+            return $this->invalidCode();
         }
 
+        return $this->success('الرمز صحيح.');
+    }
+
+    #[OA\Post(path: "/api/reset-password", summary: "إعادة ضبط كلمة المرور باستخدام التوكن", tags: ["Auth"], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ["token", "email", "password", "password_confirmation"], properties: [new OA\Property(property: "token", type: "string", example: "1234", description: "الرمز من الإيميل"), new OA\Property(property: "email", type: "string", format: "email", example: "user@example.com"), new OA\Property(property: "password", type: "string", format: "password", example: "newpassword123"), new OA\Property(property: "password_confirmation", type: "string", format: "password", example: "newpassword123")])), responses: [new OA\Response(response: 200, description: "تم إعادة ضبط كلمة المرور بنجاح"), new OA\Response(response: 422, description: "التوكن غير صالح أو منتهي")])]
+    public function resetPassword(ResetPasswordRequest $request, PasswordResetCodeService $codes): JsonResponse
+    {
+        $email = $request->string('email')->lower()->toString();
+        if (! $codes->check($email, $request->string('token')->toString())) {
+            return $this->invalidCode();
+        }
+
+        $user = User::where('email', $email)->firstOrFail();
+        $user->forceFill(['password' => Hash::make($request->string('password')->toString()), 'remember_token' => Str::random(60)])->save();
+        $user->tokens()->delete();
+        $codes->forget($email);
+        event(new PasswordReset($user));
+
         return $this->success('تم إعادة ضبط كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.');
+    }
+
+    private function invalidCode(): JsonResponse
+    {
+        return $this->failure('رمز التحقق غير صحيح أو منتهي. اطلب رمزًا جديدًا.', 422, [
+            'token' => ['رمز التحقق غير صحيح أو منتهي. اطلب رمزًا جديدًا.'],
+        ]);
     }
 
     private function tokenData(User $user): array
