@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Mail\Transport\BrevoTransport;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -37,8 +38,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('signed', fn (Request $request) => Limit::perMinute(6)->by($request->ip()));
         RateLimiter::for('authenticated', fn (Request $request) => Limit::perMinute(60)->by($byUserOrIp($request)));
 
-        ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            return config('app.url') . "/reset-password?token={$token}&email={$notifiable->getEmailForPasswordReset()}";
-        });
+        // فرح: ناقل الإيميل "brevo" (HTTPS API) المعرّف في config/mail.php.
+        Mail::extend('brevo', fn (array $config) => new BrevoTransport((string) ($config['key'] ?? '')));
     }
 }

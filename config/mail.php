@@ -37,6 +37,12 @@ return [
 
     'mailers' => [
 
+        // فرح: Brevo عبر HTTPS (Railway يمنع منافذ SMTP على خطة Hobby). المفتاح من BREVO_API_KEY.
+        'brevo' => [
+            'transport' => 'brevo',
+            'key' => env('BREVO_API_KEY'),
+        ],
+
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),

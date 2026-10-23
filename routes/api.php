@@ -52,6 +52,7 @@ Route::middleware('throttle:auth')->group(function () {
     Route::post('/auth/google', [AuthController::class, 'googleLogin']);
     Route::post('/resend-verification-email', [AuthController::class, 'resendVerificationEmail']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/verify-reset-code', [AuthController::class, 'verifyResetCode']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
 });
 

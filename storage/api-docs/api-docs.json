@@ -643,6 +643,47 @@
                 }
             }
         },
+        "/api/verify-reset-code": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "التحقق من رمز إعادة تعيين كلمة المرور",
+                "operationId": "bced226c1b2aec1c53f8519d1c01d1f6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "token"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "example": "1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "الرمز صحيح"
+                    },
+                    "422": {
+                        "description": "الرمز غير صحيح أو منتهي"
+                    }
+                }
+            }
+        },
         "/api/reset-password": {
             "post": {
                 "tags": [
@@ -663,8 +704,9 @@
                                 ],
                                 "properties": {
                                     "token": {
+                                        "description": "الرمز من الإيميل",
                                         "type": "string",
-                                        "example": "sampletoken123"
+                                        "example": "1234"
                                     },
                                     "email": {
                                         "type": "string",
