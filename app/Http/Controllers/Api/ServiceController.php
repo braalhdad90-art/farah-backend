@@ -578,6 +578,8 @@ class ServiceController extends Controller
             'service_type' => $service->service_type,
             'description' => $service->description,
             'features' => $service->features ?? [],
+            // فرح: المزايا اللي سمح المزود بإزالتها، حتى يعرض التطبيق "قابلة للإزالة" بدل التخمين.
+            'removable_features' => array_values(array_intersect($service->removable_features ?? [], $service->features ?? [])),
             'capacity' => $service->capacity,
             'area' => $service->area,
             'area_unit' => $service->area_unit,
