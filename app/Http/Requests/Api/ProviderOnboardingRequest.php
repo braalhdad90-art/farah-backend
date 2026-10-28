@@ -18,6 +18,8 @@ class ProviderOnboardingRequest extends BaseApiRequest
             'longitude' => 'nullable|numeric|between:-180,180',
             'identity_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:8192',
             'commercial_register' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:8192',
+            // فرح: رقم السجل التجاري المكتوب في خطوة التسجيل (اختياري، غير ملف السجل).
+            'commercial_register_number' => 'nullable|string|max:50',
             'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
         ];
     }

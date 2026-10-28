@@ -114,7 +114,7 @@ class ProviderServiceManager
             $profile = ProviderProfile::firstOrNew(['user_id' => $user->id]);
             abort_unless(! in_array($profile->status, ['approved', 'suspended'], true), 409, 'لا يمكن إعادة إرسال بيانات التوثيق لحساب معتمد أو موقوف.');
             $profile->fill(collect($data)->only([
-                'business_name', 'category_id', 'city_id', 'description',
+                'business_name', 'category_id', 'city_id', 'description', 'commercial_register_number',
             ])->all());
             if (filled($data['profit_account'] ?? null)) {
                 $profile->payout_account_number = $data['profit_account'];
