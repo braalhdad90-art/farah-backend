@@ -64,6 +64,7 @@ class ProviderController extends Controller
                         new OA\Property(property: "longitude", type: "number", format: "float", nullable: true),
                         new OA\Property(property: "identity_document", type: "string", format: "binary"),
                         new OA\Property(property: "commercial_register", type: "string", format: "binary"),
+                        new OA\Property(property: "commercial_register_number", type: "string", nullable: true),
                         new OA\Property(property: "cover_image", type: "string", format: "binary")
                     ]
                 )

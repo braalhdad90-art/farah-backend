@@ -123,6 +123,32 @@ class ProviderSettingsApiTest extends TestCase
         $this->assertMatchesRegularExpression('#^https?://#', $dashboard['cover_image']);
     }
 
+    // فرح: رقم السجل التجاري المكتوب في خطوة التسجيل ينحفظ.
+    public function test_onboarding_saves_the_commercial_register_number(): void
+    {
+        $provider = User::factory()->create(['user_type' => 'provider']);
+
+        $this->actingAs($provider, 'sanctum')->postJson('/api/provider/onboarding', [
+            'business_name' => 'Store',
+            'category_id' => Category::factory()->create()->id,
+            'description' => 'Desc',
+            'city_id' => City::create(['name' => 'Register city'])->id,
+            'address' => 'Gaza',
+            'commercial_register_number' => '562-889-114',
+        ])->assertSuccessful();
+
+        $this->assertSame('562-889-114', $provider->providerProfile->fresh()->commercial_register_number);
+    }
+
+    // فرح: مركز مساعدة العميل يعرض أسئلة العميل المبدئية فقط.
+    public function test_customer_faqs_are_seeded(): void
+    {
+        $questions = collect($this->getJson('/api/faqs?audience=customer')->assertOk()->json('data'))->pluck('question');
+
+        $this->assertContains('متى وكيف أدفع العربون؟', $questions);
+        $this->assertNotContains('كيف أستلم دفعات العملاء؟', $questions);
+    }
+
     // فرح: العنوان في "تعديل الملف الشخصي" يُحفظ ويرجع، ولا يغيّر عنوان المتجر.
     public function test_profile_update_saves_the_personal_address(): void
     {
