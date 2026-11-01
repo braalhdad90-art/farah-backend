@@ -48,6 +48,10 @@ class AdminProviderReviewTest extends TestCase
             'subscription_plan_id' => $plan->id,
             'status' => 'trialing',
         ]);
+        // فرح: الفترة المجانية عند الاعتماد بطول الباقة (3 أشهر)، مش شهر ثابت.
+        $trial = \App\Models\ProviderSubscription::where('provider_id', $provider->id)->firstOrFail();
+        $this->assertTrue($trial->current_period_end->equalTo($plan->fresh()->periodEndFrom($trial->current_period_start)));
+        $this->assertGreaterThan(80, $trial->current_period_start->diffInDays($trial->current_period_end));
         $this->assertDatabaseHas('admin_audit_logs', [
             'action' => 'provider_approved',
             'resource_id' => $profile->id,
@@ -55,6 +59,7 @@ class AdminProviderReviewTest extends TestCase
         $this->assertDatabaseHas('app_notifications', [
             'user_id' => $provider->id,
             'type' => 'provider_approved',
+            'body' => 'تم اعتماد حسابك وتفعيل الفترة المجانية (3 أشهر).',
         ]);
 
         $this->actingAs($admin)->post(route('admin.provider.approve', $profile))->assertStatus(409);

@@ -217,11 +217,11 @@ class ProviderServiceManager
                 'ends_at' => $subscription->current_period_end?->toIso8601String(),
                 'trial_ends_at' => $subscription->trial_ends_at?->toIso8601String(),
                 'days_remaining' => max(0, now()->diffInDays($subscription->current_period_end, false)),
-                'message' => $subscription->status === 'trialing' ? 'أول شهر مجاني ومفعّل الآن.' : 'الاشتراك فعّال.',
+                'message' => $subscription->status === 'trialing' ? 'الفترة المجانية مفعّلة الآن.' : 'الاشتراك فعّال.',
             ] : [
                 'status' => 'not_started',
                 'is_active' => false,
-                'message' => 'فعّل التجربة المجانية لمدة شهر من صفحة الاشتراك.',
+                'message' => 'فعّل التجربة المجانية من صفحة الاشتراك.',
             ],
             'counts' => [
                 'new_orders' => Booking::where('provider_id', $user->id)->where('workflow_status', 'provider_pending')->count(),

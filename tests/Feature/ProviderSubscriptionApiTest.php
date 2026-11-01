@@ -63,6 +63,30 @@ class ProviderSubscriptionApiTest extends TestCase
         $this->assertDatabaseCount('provider_subscriptions', 1);
     }
 
+    // فرح: الفترة المجانية 3 أشهر، ومدتها من الباقة (لوحة الأدمن) مش ثابتة بالكود.
+    public function test_free_trial_lasts_three_months_from_the_plan(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 2)->startOfDay());
+        $plan = \App\Models\SubscriptionPlan::where('slug', 'free-trial')->firstOrFail();
+        $this->assertSame(3, $plan->interval_count);
+        $this->assertSame('3 أشهر', $plan->durationLabel());
+
+        $provider = $this->approvedProvider();
+        $this->actingAs($provider, 'sanctum')
+            ->postJson('/api/provider/subscription', ['plan' => 'free-trial'])
+            ->assertCreated()
+            ->assertJsonPath('message', 'تم تفعيل الفترة المجانية (3 أشهر) بنجاح.');
+        $this->assertSame('2027-02-02', $provider->providerSubscriptions()->first()->current_period_end->toDateString());
+
+        // The admin changes it to 2 months: new trials follow.
+        $plan->update(['interval_count' => 2]);
+        $other = $this->approvedProvider();
+        $this->actingAs($other, 'sanctum')
+            ->postJson('/api/provider/subscription', ['plan' => 'free-trial'])
+            ->assertCreated();
+        $this->assertSame('2027-01-02', $other->providerSubscriptions()->first()->current_period_end->toDateString());
+    }
+
     public function test_free_month_is_not_granted_again_after_it_ends(): void
     {
         $provider = $this->approvedProvider();

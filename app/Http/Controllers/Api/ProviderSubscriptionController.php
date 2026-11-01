@@ -45,11 +45,11 @@ class ProviderSubscriptionController extends Controller
         ]);
     }
 
-    // فرح: تفعيل الاشتراك. الشهر المجاني يتفعّل فورًا، والباقات المدفوعة تحتاج إشعار تحويل (proof)
+    // فرح: تفعيل الاشتراك. الفترة المجانية يتفعّل فورًا، والباقات المدفوعة تحتاج إشعار تحويل (proof)
     // يراجعه الأدمن من لوحة التحكم: المالية ← اشتراكات المزودين (AdminFinanceController).
     #[OA\Post(
         path: "/api/provider/subscription",
-        summary: "تفعيل الشهر المجاني أو إرسال إشعار تحويل لباقة مدفوعة",
+        summary: "تفعيل الفترة المجانية أو إرسال إشعار تحويل لباقة مدفوعة",
         security: [["bearerAuth" => []]],
         tags: ["Provider Subscriptions"],
         requestBody: new OA\RequestBody(required: true, content: new OA\MediaType(
@@ -60,9 +60,9 @@ class ProviderSubscriptionController extends Controller
             ])
         )),
         responses: [
-            new OA\Response(response: 200, description: "الشهر المجاني مفعّل مسبقًا"),
-            new OA\Response(response: 201, description: "تم تفعيل الشهر المجاني أو استلام إشعار التحويل"),
-            new OA\Response(response: 409, description: "تم استخدام الشهر المجاني أو يوجد إشعار قيد المراجعة"),
+            new OA\Response(response: 200, description: "الفترة المجانية مفعّل مسبقًا"),
+            new OA\Response(response: 201, description: "تم تفعيل الفترة المجانية أو استلام إشعار التحويل"),
+            new OA\Response(response: 409, description: "تم استخدام الفترة المجانية أو يوجد إشعار قيد المراجعة"),
             new OA\Response(response: 422, description: "بيانات غير صالحة"),
         ]
     )]
@@ -94,12 +94,12 @@ class ProviderSubscriptionController extends Controller
     {
         $now = Carbon::now();
 
-        // Approving a provider already opens the free month, so selecting it again just confirms it.
+        // Approving a provider already opens the free period, so selecting it again just confirms it.
         $activeTrial = $provider->activeProviderSubscription()->with('plan')->first();
         if ($activeTrial && $activeTrial->status === 'trialing') {
             return response()->json([
                 'status' => true,
-                'message' => 'الشهر المجاني مفعّل على حسابك.',
+                'message' => 'الفترة المجانية مفعّلة على حسابك.',
                 'data' => $activeTrial,
             ]);
         }
@@ -110,7 +110,8 @@ class ProviderSubscriptionController extends Controller
                 return null;
             }
 
-            $trialEndsAt = $now->copy()->addMonthNoOverflow();
+            // فرح: مدة الفترة المجانية من باقة free-trial (لوحة الأدمن ← باقات الاشتراك).
+            $trialEndsAt = $trialPlan->periodEndFrom($now);
             return $lockedProvider->providerSubscriptions()->create([
                 'subscription_plan_id' => $trialPlan->id,
                 'status' => 'trialing',
@@ -123,13 +124,13 @@ class ProviderSubscriptionController extends Controller
         if (! $subscription) {
             return response()->json([
                 'status' => false,
-                'message' => 'تم استخدام الشهر المجاني مسبقًا. اختر باقة مدفوعة للمتابعة.',
+                'message' => 'تم استخدام الفترة المجانية مسبقًا. اختر باقة مدفوعة للمتابعة.',
             ], 409);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'تم تفعيل الشهر المجاني بنجاح.',
+            'message' => 'تم تفعيل الفترة المجانية ('.$trialPlan->durationLabel().') بنجاح.',
             'data' => $subscription->load('plan'),
         ], 201);
     }

@@ -127,10 +127,7 @@ class AdminFinanceController extends Controller
                     ->get();
                 $start = now();
                 $base = $current->max('current_period_end') ?? $start;
-                $count = max(1, (int) $locked->plan->interval_count);
-                $end = $locked->plan->interval === 'year'
-                    ? $base->copy()->addYearsNoOverflow($count)
-                    : $base->copy()->addMonthsNoOverflow($count);
+                $end = $locked->plan->periodEndFrom($base);
 
                 ProviderSubscription::whereKey($current->pluck('id'))->update(['status' => 'replaced']);
                 $subscriptionId = ProviderSubscription::create([

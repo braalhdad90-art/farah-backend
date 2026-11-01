@@ -151,7 +151,8 @@ class AdminController extends Controller
             $trialPlan = SubscriptionPlan::where('slug', 'free-trial')->where('is_active', true)->firstOrFail();
             $trialCreated = false;
             if ($user && ! ProviderSubscription::where('provider_id', $provider->user_id)->exists()) {
-                $trialEndsAt = now()->addMonthNoOverflow();
+                // فرح: مدة الفترة المجانية من الباقة نفسها (كانت شهر ثابت بالكود).
+                $trialEndsAt = $trialPlan->periodEndFrom(now());
                 ProviderSubscription::create([
                     'provider_id' => $provider->user_id,
                     'subscription_plan_id' => $trialPlan->id,
@@ -171,7 +172,7 @@ class AdminController extends Controller
                     $user,
                     'provider_approved',
                     'تم اعتماد حساب مزود الخدمة',
-                    $trialCreated ? 'تم اعتماد حسابك وتفعيل الشهر المجاني.' : 'تم اعتماد حسابك. يمكنك متابعة إعداد اشتراكك.',
+                    $trialCreated ? 'تم اعتماد حسابك وتفعيل الفترة المجانية ('.$trialPlan->durationLabel().').' : 'تم اعتماد حسابك. يمكنك متابعة إعداد اشتراكك.',
                     'provider_profile',
                     $provider->id
                 );
