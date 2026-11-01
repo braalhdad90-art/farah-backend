@@ -37,6 +37,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', 'admin.idle', 'a
         Route::get('/export/bookings.csv', [AdminController::class, 'exportBookingsCsv'])->name('export.bookings');
     });
     Route::middleware('admin:system.admin')->group(function () {
+        // فرح: المستخدمين (عملاء ومزودين) مع حذف الحساب.
+        Route::get('/users', [AdminController::class, 'users'])->name('users');
+        Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('users.delete');
         Route::get('/team', [AdminController::class, 'team'])->name('team');
         Route::post('/team', [AdminController::class, 'createAdmin'])->name('team.create');
         Route::post('/team/{user}/role', [AdminController::class, 'updateAdminRole'])->name('team.update_role');

@@ -14,11 +14,11 @@ use App\Http\Requests\Api\ResendVerificationEmailRequest;
 use App\Http\Requests\Api\ResetPasswordRequest;
 use App\Http\Requests\Api\UpdateEmailRequest;
 use App\Http\Requests\Api\UpdateProfileRequest;
-use App\Models\Booking;
 use App\Models\Location;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Notifications\WelcomeNotification;
+use App\Services\AccountDeletionService;
 use App\Services\EmailNotifier;
 use App\Services\PasswordResetCodeService;
 use App\Notifications\VerifyEmailChange;
@@ -314,30 +314,11 @@ class AuthController extends Controller
         if (! $this->hasRecentAuthentication($user, $request)) {
             return $this->failure('تعذر التحقق من هويتك. أدخل كلمة المرور الحالية أو أعد التحقق عبر Google.', 403);
         }
-        $hasActiveBookings = Booking::query()
-            ->where(fn ($query) => $query->where('user_id', $user->id)->orWhere('provider_id', $user->id))
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
-        if ($hasActiveBookings) {
+        $deletion = app(AccountDeletionService::class);
+        if ($deletion->hasActiveBookings($user)) {
             return $this->failure('لا يمكن حذف الحساب لوجود حجوزات قائمة. ألغِ الحجوزات أو أتممها أولًا.', 409);
         }
-
-        DB::transaction(function () use ($user): void {
-            $user->tokens()->delete();
-            $user->forceFill([
-                'name' => 'حساب محذوف',
-                'email' => 'deleted-'.$user->id.'-'.Str::uuid().'@deleted.farah.local',
-                'phone' => null,
-                'avatar' => null,
-                'bio' => null,
-                'cover_image' => null,
-                'pending_email' => null,
-                'google_id' => null,
-                'status' => 'inactive',
-                'remember_token' => Str::random(60),
-            ])->save();
-            $user->delete();
-        });
+        $deletion->delete($user);
 
         return $this->success('تم حذف الحساب وإلغاء جميع جلسات الدخول بنجاح.');
     }

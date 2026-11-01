@@ -28,6 +28,7 @@
 
     if ($role === 'system.admin') {
         $navItems[] = ['label' => 'سجل التدقيق', 'icon' => 'fa-clipboard-list', 'route' => route('admin.audit-log'), 'active' => request()->routeIs('admin.audit-log')];
+        $navItems[] = ['label' => 'المستخدمين', 'icon' => 'fa-users', 'route' => route('admin.users'), 'active' => request()->routeIs('admin.users*')];
         $navItems[] = ['label' => 'فريق الإدارة', 'icon' => 'fa-user-gear', 'route' => route('admin.team'), 'active' => request()->routeIs('admin.team*')];
         $navItems[] = ['label' => 'التصنيفات', 'icon' => 'fa-layer-group', 'route' => route('admin.categories'), 'active' => request()->routeIs('admin.categories*')];
         $navItems[] = ['label' => 'باقات الاشتراك', 'icon' => 'fa-tags', 'route' => route('admin.plans'), 'active' => request()->routeIs('admin.plans*')];
