@@ -86,7 +86,8 @@ class ProviderController extends Controller
 
         return response()->json([
             'icon' => 'success',
-            'title' => 'تم حفظ بيانات مزود الخدمة وتفعيل الحساب مباشرة.',
+            // فرح: الطلب بيروح للمراجعة (pending)، مش تفعيل مباشر.
+            'title' => 'تم إرسال بياناتك للمراجعة. سنبلغك بالإيميل والإشعارات عند اعتماد حسابك.',
             'data' => $profile->load(['category', 'city']),
         ]);
     }

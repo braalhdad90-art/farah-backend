@@ -16,7 +16,10 @@ use App\Http\Requests\Api\UpdateEmailRequest;
 use App\Http\Requests\Api\UpdateProfileRequest;
 use App\Models\Booking;
 use App\Models\Location;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Notifications\WelcomeNotification;
+use App\Services\EmailNotifier;
 use App\Services\PasswordResetCodeService;
 use App\Notifications\VerifyEmailChange;
 use Google\Client as GoogleClient;
@@ -109,6 +112,7 @@ class AuthController extends Controller
             'status' => 'active',
             'email_verified_at' => now(),
         ]);
+        $this->sendWelcome($user);
 
         return $this->success('تم إنشاء الحساب وتفعيله بنجاح.', $this->tokenData($user), 201);
     }
@@ -143,6 +147,7 @@ class AuthController extends Controller
                 'google_id' => $payload['sub'],
                 'email_verified_at' => now(),
             ]);
+            $this->sendWelcome($user);
         }
 
         return $this->success('تم تسجيل الدخول عبر Google بنجاح.', $this->tokenData($user));
@@ -407,6 +412,15 @@ class AuthController extends Controller
         return $this->failure('رمز التحقق غير صحيح أو منتهي. اطلب رمزًا جديدًا.', 422, [
             'token' => ['رمز التحقق غير صحيح أو منتهي. اطلب رمزًا جديدًا.'],
         ]);
+    }
+
+    // فرح: إيميل الترحيب بعد التسجيل (للمزود يذكر مدة الفترة المجانية من الباقة). فشله ما بيوقف التسجيل.
+    private function sendWelcome(User $user): void
+    {
+        $trialLength = $user->user_type === 'provider'
+            ? SubscriptionPlan::where('slug', 'free-trial')->where('is_active', true)->first()?->durationLabel()
+            : null;
+        app(EmailNotifier::class)->send($user, new WelcomeNotification($trialLength));
     }
 
     private function tokenData(User $user): array

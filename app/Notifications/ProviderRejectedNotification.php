@@ -26,6 +26,7 @@ class ProviderRejectedNotification extends Notification
             ->greeting('مرحباً '.$notifiable->name)
             ->line('لم تتم الموافقة على طلب توثيق حسابك حالياً.')
             ->line('سبب الرفض: '.$this->reason)
-            ->line('يمكنك تحديث بياناتك وإعادة إرسال الطلب من التطبيق.');
+            ->line('يمكنك تحديث بياناتك وإعادة إرسال الطلب من التطبيق.')
+            ->salutation('فريق فرح');
     }
 }

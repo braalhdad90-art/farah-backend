@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Str;
 use App\Services\NotificationService;
+use App\Notifications\ProviderApprovedNotification;
 use App\Notifications\ProviderRejectedNotification;
+use App\Services\EmailNotifier;
 
 class AdminController extends Controller
 {
@@ -135,7 +137,9 @@ class AdminController extends Controller
     {
         $this->authorizeAdminAction('approve-provider');
 
-        DB::transaction(function () use ($provider, $notifications): void {
+        $approvedUser = null;
+        $trialLength = null;
+        DB::transaction(function () use ($provider, $notifications, &$approvedUser, &$trialLength): void {
             $provider = ProviderProfile::whereKey($provider->id)->lockForUpdate()->firstOrFail();
             abort_unless($provider->status === 'pending', 409, 'لا يمكن اعتماد إلا الطلبات قيد المراجعة.');
             $user = User::whereKey($provider->user_id)->lockForUpdate()->first();
@@ -166,6 +170,8 @@ class AdminController extends Controller
 
             $after = $provider->fresh()->only(['status', 'registration_status', 'decision_reason', 'decided_at']);
             $after['free_trial_activated'] = $trialCreated;
+            $approvedUser = $user;
+            $trialLength = $trialCreated ? $trialPlan->durationLabel() : null;
             $this->writeAudit('provider_approved', $provider, $before, $after);
             if ($user) {
                 $notifications->send(
@@ -178,6 +184,9 @@ class AdminController extends Controller
                 );
             }
         });
+
+        // فرح: إيميل الاعتماد بعد حفظ القرار؛ فشل الإرسال ما بيلغي الاعتماد.
+        app(EmailNotifier::class)->send($approvedUser, new ProviderApprovedNotification($trialLength));
 
         return redirect()->route('admin.providers.pending')->with('success', 'تم اعتماد مزود الخدمة بنجاح.');
     }
@@ -206,9 +215,8 @@ class AdminController extends Controller
             }
         });
 
-        if ($rejectedUser) {
-            $rejectedUser->notify(new ProviderRejectedNotification($request->string('reason')->trim()->toString()));
-        }
+        // فرح: إيميل الرفض مع السبب؛ فشل الإرسال ما بيوقف صفحة الأدمن.
+        app(EmailNotifier::class)->send($rejectedUser, new ProviderRejectedNotification($request->string('reason')->trim()->toString()));
 
         return redirect()->route('admin.providers.pending')->with('success', 'تم رفض طلب مزود الخدمة.');
     }
