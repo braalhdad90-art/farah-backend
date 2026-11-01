@@ -32,7 +32,11 @@ class AuthSettingsApiTest extends TestCase
         $token = $response->json('data.token');
         $this->assertNotEmpty($token);
         $this->assertNotNull(User::where('email', 'new@example.test')->value('email_verified_at'));
-        Notification::assertNothingSent();
+        // فرح: ما في إيميل تفعيل (الحساب مفعّل مباشرة)، بس في إيميل ترحيب.
+        $user = User::where('email', 'new@example.test')->first();
+        Notification::assertNotSentTo($user, \Illuminate\Auth\Notifications\VerifyEmail::class);
+        Notification::assertSentTo($user, \App\Notifications\WelcomeNotification::class);
+        Notification::assertCount(1);
 
         $this->withToken($token)->getJson('/api/profile')->assertOk();
     }
