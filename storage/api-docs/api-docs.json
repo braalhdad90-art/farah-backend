@@ -780,6 +780,13 @@
                                     "notes": {
                                         "type": "string",
                                         "nullable": true
+                                    },
+                                    "removed_features": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
