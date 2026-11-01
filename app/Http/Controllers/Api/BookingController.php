@@ -35,7 +35,7 @@ class BookingController extends Controller
         private readonly BookingExpirationService $expiration,
     ) {}
 
-    #[OA\Post(path: '/api/services/{id}/bookings', summary: 'إنشاء طلب حجز', security: [['bearerAuth' => []]], tags: ['Bookings'], parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['booking_date', 'booking_time'], properties: [new OA\Property(property: 'booking_date', type: 'string', format: 'date'), new OA\Property(property: 'booking_time', type: 'string'), new OA\Property(property: 'booking_slot', type: 'string', nullable: true), new OA\Property(property: 'notes', type: 'string', nullable: true)])), responses: [new OA\Response(response: 201, description: 'تم إرسال طلب الحجز'), new OA\Response(response: 422, description: 'الفترة غير متاحة')])]
+    #[OA\Post(path: '/api/services/{id}/bookings', summary: 'إنشاء طلب حجز', security: [['bearerAuth' => []]], tags: ['Bookings'], parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))], requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['booking_date', 'booking_time'], properties: [new OA\Property(property: 'booking_date', type: 'string', format: 'date'), new OA\Property(property: 'booking_time', type: 'string'), new OA\Property(property: 'booking_slot', type: 'string', nullable: true), new OA\Property(property: 'notes', type: 'string', nullable: true), new OA\Property(property: 'removed_features', type: 'array', items: new OA\Items(type: 'string'), nullable: true)])), responses: [new OA\Response(response: 201, description: 'تم إرسال طلب الحجز'), new OA\Response(response: 422, description: 'الفترة غير متاحة')])]
     public function store(CreateBookingRequest $request, int $id)
     {
         $this->expiration->expireStale();
@@ -48,6 +48,14 @@ class BookingController extends Controller
             $dateBlocked = $service->unavailableDates()->whereDate('unavailable_date', $request->booking_date)->exists();
             if (! $slot || $dateBlocked || $this->slotTaken($service->id, $request->booking_date, $request->booking_time, $request->booking_slot)) {
                 throw ValidationException::withMessages(['booking_slot' => 'الفترة المختارة غير متاحة للحجز.']);
+            }
+
+            // فرح: العميل بيقدر يشيل بس المزايا اللي المزود سمح بإزالتها.
+            $removed = collect($request->input('removed_features', []))->map(fn ($f) => trim((string) $f))->filter()->unique()->values();
+            $allowed = collect($service->removable_features ?? [])->intersect($service->features ?? []);
+            $notAllowed = $removed->diff($allowed);
+            if ($notAllowed->isNotEmpty()) {
+                throw ValidationException::withMessages(['removed_features' => 'لا يمكن إزالة: '.$notAllowed->implode('، ').'.']);
             }
 
             $price = (float) ($slot['price'] ?? $service->price);
@@ -72,6 +80,7 @@ class BookingController extends Controller
                 'workflow_status' => 'provider_pending',
                 'expires_at' => now()->addDay(),
                 'notes' => $request->notes,
+                'removed_features' => $removed->isEmpty() ? null : $removed->all(),
                 'service_snapshot' => $this->serviceSnapshot($service, $slot),
             ])->load(['service.images', 'service.items', 'provider.providerProfile', 'payments']);
         });
@@ -326,6 +335,8 @@ class BookingController extends Controller
             'time' => Carbon::parse($booking->booking_time)->format('H:i'),
             'slot' => $booking->booking_slot,
             'notes' => $booking->notes,
+            // فرح: المزايا اللي شالها العميل، تظهر للمزود بتفاصيل الطلب.
+            'removed_features' => $booking->removed_features ?? [],
             'provider_note' => $booking->provider_note,
             'customer' => $booking->relationLoaded('user') ? [
                 'id' => $booking->user?->id,

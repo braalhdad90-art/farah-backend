@@ -14,6 +14,9 @@ class CreateBookingRequest extends BaseApiRequest
             'booking_time' => 'required|date_format:H:i',
             'booking_slot' => 'nullable|string|max:100',
             'notes' => 'nullable|string|max:2000',
+            // فرح: المزايا اللي بدّه العميل يشيلها (لازم تكون من removable_features تبع الخدمة).
+            'removed_features' => 'nullable|array|max:50',
+            'removed_features.*' => 'nullable|string|max:255',
         ];
     }
 

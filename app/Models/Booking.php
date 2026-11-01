@@ -10,6 +10,7 @@ class Booking extends Model
     use HasFactory;
 
     protected $fillable = [
+        'removed_features',
         'user_id',
         'service_id',
         'provider_id',
@@ -38,6 +39,7 @@ class Booking extends Model
     ];
 
     protected $casts = [
+        'removed_features' => 'array',
         'booking_date' => 'date:Y-m-d',
         'booking_time' => 'datetime:H:i',
         'total_price' => 'float',

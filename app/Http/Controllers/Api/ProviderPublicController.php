@@ -85,6 +85,7 @@ class ProviderPublicController extends Controller
                 'services' => $services->map(fn (Service $service) => [
                     'id' => $service->id,
                     'title' => $service->title,
+                    'description' => $service->description,
                     'service_type' => $service->service_type,
                     'price' => (float) $service->price,
                     'pricing_unit' => $service->pricing_unit,
