@@ -171,6 +171,7 @@ class AdminOperationsTest extends TestCase
             'admin.finance.payouts',
             'admin.audit-log',
             'admin.team',
+            'admin.users',
             'admin.categories',
             'admin.plans',
             'admin.faqs',

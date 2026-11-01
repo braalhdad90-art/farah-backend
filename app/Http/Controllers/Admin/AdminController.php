@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 use App\Services\NotificationService;
 use App\Notifications\ProviderApprovedNotification;
 use App\Notifications\ProviderRejectedNotification;
+use App\Services\AccountDeletionService;
 use App\Services\EmailNotifier;
 
 class AdminController extends Controller
@@ -85,6 +86,49 @@ class AdminController extends Controller
             ->withQueryString();
 
         return view('admin.providers', ['providers' => $providers, 'filters' => $filters, 'categories' => Category::orderBy('name')->get(['id', 'name'])]);
+    }
+
+    // فرح: صفحة "المستخدمين": بحث في العملاء والمزودين وحذف حساب (system.admin فقط).
+    public function users(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'type' => ['nullable', 'in:customer,provider'],
+        ]);
+        $users = User::query()
+            ->whereIn('user_type', ['customer', 'provider'])
+            ->with('providerProfile:id,user_id,business_name,status')
+            ->withCount([
+                'bookings as customer_bookings_count',
+                'providerBookings as provider_bookings_count',
+            ])
+            ->when($filters['search'] ?? null, function ($query, string $search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
+            ->when($filters['type'] ?? null, fn ($query, string $type) => $query->where('user_type', $type))
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('admin.users', ['users' => $users, 'filters' => $filters]);
+    }
+
+    public function deleteUser(Request $request, User $user, AccountDeletionService $deletion)
+    {
+        abort_unless(in_array($user->user_type, ['customer', 'provider'], true), 403, 'لا يمكن حذف حسابات فريق الإدارة من هنا.');
+        if ($deletion->hasActiveBookings($user)) {
+            return back()->withErrors(['user' => 'لا يمكن حذف الحساب لوجود حجوزات قائمة. ألغِ الحجوزات أو أتممها أولًا.']);
+        }
+
+        $before = $user->only(['name', 'email', 'phone', 'user_type', 'status']);
+        $deletion->delete($user);
+        $this->writeRecordAudit('user_deleted', 'user', $user->id, $user->id, $before, ['deleted' => true], $request);
+
+        return back()->with('success', 'تم حذف الحساب ('.$before['email'].'). يمكن التسجيل بهذا البريد من جديد.');
     }
 
     public function providersPending(Request $request)
