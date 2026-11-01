@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\ProviderSubscriptionController;
 use App\Http\Controllers\Api\PublicSettingsController;
 use App\Http\Controllers\Api\FaqController;
+use App\Http\Controllers\Api\ProviderPublicController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,8 @@ Route::middleware('throttle:public')->group(function () {
     Route::get('/categories/{id}/services', [ServiceController::class, 'index']);
     Route::get('/services/{id}', [ServiceController::class, 'show']);
     Route::get('/services/{id}/booking-options', [ServiceController::class, 'bookingOptions']);
+    // فرح: صفحة المزود العامة (بيانات المتجر وخدماته المنشورة).
+    Route::get('/providers/{id}', [ProviderPublicController::class, 'show'])->whereNumber('id');
 });
 
 /*
