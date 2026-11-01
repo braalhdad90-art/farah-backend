@@ -2781,6 +2781,10 @@
                                         "type": "string",
                                         "format": "binary"
                                     },
+                                    "commercial_register_number": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
                                     "cover_image": {
                                         "type": "string",
                                         "format": "binary"
@@ -3490,6 +3494,34 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/providers/{id}": {
+            "get": {
+                "tags": [
+                    "Providers"
+                ],
+                "summary": "صفحة المزود العامة: بيانات المتجر وخدماته المنشورة",
+                "operationId": "b4fb2c1f9aaef1a67579833595dcb358",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "رقم حساب المزود (user_id)",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "بيانات المزود وخدماته"
+                    },
+                    "404": {
+                        "description": "المزود غير موجود أو غير معتمد"
+                    }
+                }
             }
         },
         "/api/provider/subscription-plans": {
@@ -4433,6 +4465,10 @@
         {
             "name": "Settings",
             "description": "Settings"
+        },
+        {
+            "name": "Providers",
+            "description": "Providers"
         }
     ]
 }
