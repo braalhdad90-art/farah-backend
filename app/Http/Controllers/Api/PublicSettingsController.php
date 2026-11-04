@@ -19,6 +19,8 @@ class PublicSettingsController extends Controller
                 'support_email' => $settings['support_email'] ?? null,
                 'support_phone' => $settings['support_phone'] ?? null,
                 'working_hours' => $settings['working_hours'] ?? null,
+                // فرح: Web Client ID تبع Google (عام، مش سر)؛ التطبيق بيطلب فيه id_token يتحقق منه السيرفر بـ /auth/google.
+                'google_client_id' => config('services.google.client_id') ?: null,
                 // فرح: حساب المنصة لاستلام اشتراكات المزودين. يعبّيه الأدمن من: إعدادات المنصة.
                 'bank_transfer' => [
                     'bank_name' => $settings['bank_name'] ?? null,
